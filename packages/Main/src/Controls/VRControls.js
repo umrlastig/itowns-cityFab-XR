@@ -7,18 +7,22 @@ import { XRControllerModelFactory } from 'ThreeExtended/webxr/XRControllerModelF
  * @property {Array} controllers - WebXR controllers list
  * */
 class VRControls {
-    static MIN_DELTA_ALTITUDE = 1.8;
+    static MIN_DELTA_ALTITUDE = 1;
     static MAX_NUMBER_CONTROLLERS = 2;  // For now, we are fully supporting a maximum of 2 controllers.
     /**
      * Requires a contextXR variable.
      * @param {*} _view itowns view object
      * @param {*} _groupXR XR 3D object group
+     * @param {boolean} cameraOnGround camera movment always on the ground
      */
-    constructor(_view, _groupXR = {}) {
+    constructor(_view, _groupXR = {}, cameraOnGround = false) {
     // Store instance references.
         this.view = _view;
         this.groupXR = _groupXR;
         this.webXRManager = _view.mainLoop.gfxEngine.renderer.xr;
+        this.cameraOnGround = cameraOnGround;
+
+        this.lines = [];
 
         this.rightButtonPressed = false;
         this.controllers = [];
@@ -37,9 +41,16 @@ class VRControls {
 
         const controllerModelFactory = new XRControllerModelFactory();
 
+        // Add line to controller
+        const geometry = new THREE.BufferGeometry();
+        geometry.setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
+
+
         for (let i = 0; i < VRControls.MAX_NUMBER_CONTROLLERS; i++) {
             const controller = this.webXRManager.getController(i);
-
+            const line = new THREE.Line(geometry);
+            controller.add(line);
+            this.lines.push(line);
 
             controller.addEventListener('connected', (event) => {
                 controller.name = event.data.handedness;    // Left or right
@@ -59,10 +70,49 @@ class VRControls {
                 this.setupEventListeners(controller);
             });
 
+            this.addColorCube();
+
             controller.addEventListener('disconnected', function removeCtrl() {
                 this.remove(this.children[0]);
             });
         }
+    }
+
+
+    /**
+     * Debug
+     */
+    addColorCube() {
+        // --- Create button mesh ---
+        function makeButtonMesh(x, y, z, c, opacity, wireframe) {
+            const geometry = new THREE.BoxGeometry(x, y, z);
+            const material = new THREE.MeshBasicMaterial({ color: c });
+            material.wireframe = wireframe;
+            material.transparent = true;
+            material.opacity = opacity;
+            const buttonMesh = new THREE.Mesh(geometry, material);
+            buttonMesh.name = 'button';
+
+            return buttonMesh;
+        }
+
+        const groupSelectColor = new THREE.Group();
+
+        const red = makeButtonMesh(0.1, 0.1, 0.1, 0x008000, 1, false);
+        red.position.set(-0.2, 0, 0);
+        const green = makeButtonMesh(0.1, 0.1, 0.1, 0xFF0000, 1, false);
+        green.position.set(0, 0, 0);
+        const blue = makeButtonMesh(0.1, 0.1, 0.1, 0x0000FF, 1, false);
+        blue.position.set(0.2, 0, 0);
+
+        groupSelectColor.add(red);
+        groupSelectColor.add(green);
+        groupSelectColor.add(blue);
+
+        groupSelectColor.position.set(0, 0.2, -0.5);
+        groupSelectColor.name = 'selector';
+
+        this.webXRManager.getController(1).add(groupSelectColor);
     }
 
     bindGripController(controllerModelFactory, gripController, vrHeadSet) {
@@ -197,6 +247,9 @@ Adding a few internal states for reactivity
             if (coordsProjected.altitude - terrainElevation - VRControls.MIN_DELTA_ALTITUDE <= 0) {
                 coordsProjected.altitude = terrainElevation + VRControls.MIN_DELTA_ALTITUDE;
             }
+            if (this.cameraOnGround) {
+                coordsProjected.altitude = terrainElevation + VRControls.MIN_DELTA_ALTITUDE;
+            }
             return coordsProjected.as(this.view.referenceCrs).toVector3();
         } else {
             return trans;
@@ -205,8 +258,9 @@ Adding a few internal states for reactivity
 
     // Calculate a speed factor based on the camera's altitude.
     getSpeedFactor() {
+        // eslint-disable-next-line no-unused-vars
         const altitude = this.view.controls.getCameraCoordinate ? this.view.controls.getCameraCoordinate().altitude : 1;
-        return Math.min(Math.max(altitude / 50, 2), 2000); // TODO: Adjust if needed -> add as a config ?
+        return 0.5; // TODO: Adjust if needed -> add as a config ?
     }
 
     // Calculate a yaw rotation quaternion based on an axis value from the joystick.
@@ -353,10 +407,74 @@ Adding a few internal states for reactivity
         }
     }
 
+
+    // ---- Debug tool ----
+
+    /**
+     * Recursively searches for the first feature in a THREE.Object3D.
+     * @param {THREE.Object3D} obj
+     * @returns {Object|undefined}
+    */
+    findFeatureInChildren(obj) {
+        if (!obj) { return undefined; }
+        if (obj.feature) { return [obj, obj.feature]; }
+        for (const child of (obj.children || [])) {
+            const found = this.findFeatureInChildren(child);
+            if (found) { return found; }
+        }
+        return undefined;
+    }
+
+    /**
+     * Returns the 'date_creation' property of the feature whose cleabs matches.
+     * @param {Object} feature
+     * @param {string} cleabs
+     * @returns {string|undefined}
+    */
+    findDateCreationByCleabs(feature, cleabs) {
+        if (!feature || !feature.geometries) { return undefined; }
+        for (const geom of feature.geometries) {
+            if (geom.properties.cleabs === cleabs) {
+                return geom.properties.date_creation;
+            }
+        }
+        return undefined;
+    }
+
+
     // Left button pressed.
     /* c8 ignore next 3 */
     onLeftButtonPressed() {
-    // No operation defined.
+        const raycaster = new THREE.Raycaster();
+        const pos = new THREE.Vector3();
+        const dir = new THREE.Vector3();
+
+        // right line
+        this.lines[0].getWorldPosition(pos);
+        this.lines[0].getWorldDirection(dir);
+
+        raycaster.ray.origin = pos;
+        raycaster.ray.direction = dir.multiplyScalar(-1);
+
+        // For debugging: search for the creation date of a specific cleabs in all child meshes
+        const cleabsTarget = 'BATIMENT0000002203453311';
+        let dateCreation;
+        const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
+
+        // calculate objects intersecting the picking ray
+        const intersects = raycaster.intersectObjects(this.view.scene.children);
+        if (intersects.length > 0 && intersects[0].object.name == 'button') {
+            for (const child of layer.object3d.children) {
+                const obj = this.findFeatureInChildren(child);
+                dateCreation = this.findDateCreationByCleabs(obj.feature, cleabsTarget);
+                if (dateCreation) { break; }
+            }
+            if (dateCreation) {
+                // eslint-disable-next-line no-console
+                console.log('Creation date for', cleabsTarget, ':', dateCreation);
+            }
+            // TO-DO change color from a batchID
+        }
     }
 
     // Axis changed.
@@ -401,11 +519,10 @@ Adding a few internal states for reactivity
         //  Only apply rotation on 1 axis at the time
         if (Math.abs(ctrl.gamepad.axes[2]) > Math.abs(ctrl.gamepad.axes[3])) {
             offsetRotation = this.getRotationYaw(ctrl.gamepad.axes[2]);
+            this.applyTransformationToXR(trans, offsetRotation); // Yaw rotation only
         } else {
             offsetRotation = this.getRotationPitch(ctrl.gamepad.axes[3]);
         }
-
-        this.applyTransformationToXR(trans, offsetRotation);
     }
 
     // Right axis stops.
@@ -454,4 +571,3 @@ Adding a few internal states for reactivity
 }
 
 export default VRControls;
-
