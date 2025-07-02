@@ -426,25 +426,40 @@ Adding a few internal states for reactivity
     }
 
     /**
-     * Returns the 'date_creation' property of the feature whose cleabs matches.
+     * Returns the boolean is the cleabs is in the feature list.
      * @param {Object} feature
      * @param {string} cleabs
-     * @returns {string|undefined}
+     * @returns {boolean}
     */
     findDateCreationByCleabs(feature, cleabs) {
-        if (!feature || !feature.geometries) { return undefined; }
+        if (!feature || !feature.geometries) { return false; }
         for (const geom of feature.geometries) {
             if (geom.properties.cleabs === cleabs) {
-                return geom.properties.date_creation;
+                return true;
             }
         }
-        return undefined;
+        return false;
     }
 
 
     // Left button pressed.
     /* c8 ignore next 3 */
     onLeftButtonPressed() {
+        // get mesh correspond to cleabs
+        let dateCreation;
+        // For debugging: search for the creation date of a specific cleabs in all child meshes
+        const cleabsTarget = 'BATIMENT0000000336960181';
+        const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
+        let meshWithCleabs;
+        for (const child of layer.object3d.children) {
+            const obj = this.findFeatureInChildren(child);
+            dateCreation = this.findDateCreationByCleabs(obj[1], cleabsTarget);
+            if (dateCreation) {
+                meshWithCleabs = obj[0];
+                break;
+            }
+        }
+
         const raycaster = new THREE.Raycaster();
         const pos = new THREE.Vector3();
         const dir = new THREE.Vector3();
@@ -456,24 +471,17 @@ Adding a few internal states for reactivity
         raycaster.ray.origin = pos;
         raycaster.ray.direction = dir.multiplyScalar(-1);
 
-        // For debugging: search for the creation date of a specific cleabs in all child meshes
-        const cleabsTarget = 'BATIMENT0000002203453311';
-        let dateCreation;
-        const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
+
+
 
         // calculate objects intersecting the picking ray
         const intersects = raycaster.intersectObjects(this.view.scene.children);
         if (intersects.length > 0 && intersects[0].object.name == 'button') {
-            for (const child of layer.object3d.children) {
-                const obj = this.findFeatureInChildren(child);
-                dateCreation = this.findDateCreationByCleabs(obj.feature, cleabsTarget);
-                if (dateCreation) { break; }
+            const buttonGrip = intersects[0].object;
+            if (meshWithCleabs) {
+                meshWithCleabs.material = buttonGrip.material;
+                this.view.notifyChange();
             }
-            if (dateCreation) {
-                // eslint-disable-next-line no-console
-                console.log('Creation date for', cleabsTarget, ':', dateCreation);
-            }
-            // TO-DO change color from a batchID
         }
     }
 
