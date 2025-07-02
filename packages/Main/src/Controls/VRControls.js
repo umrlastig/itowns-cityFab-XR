@@ -397,14 +397,25 @@ Adding a few internal states for reactivity
 
     // Right button pressed.
     onRightButtonPressed(data) {
-        const ctrl = data.target;
-        if (data.message.buttonIndex === 1) {
-            // Activate vertical adjustment.
-            if (ctrl.gamepad.axes[3] === 0) {
-                return;
-            }
-            this.rightButtonPressed = true;
-        }
+        const sunPos = this.view.simulateSun();
+
+        const geometrySun = new THREE.SphereGeometry(15, 32, 16); 
+        const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 }); 
+        const sun = new THREE.Mesh(geometrySun, materialSun);
+        sun.position.set(sunPos.x, sunPos.y, sunPos.z);
+        sun.updateMatrixWorld();
+        this.view.scene.add(sun);
+
+        const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5000)]);
+
+        const material = new THREE.LineBasicMaterial({ color: 0xffff00 }); // yellow line
+        const line = new THREE.Line(geometry, material);
+
+        line.position.set(this.view.camera.camera3D.position.x, this.view.camera.camera3D.position.y, this.view.camera.camera3D.position.z);
+        line.lookAt(sunPos);
+        line.updateMatrixWorld();
+
+        this.view.scene.add(line);
     }
 
 
@@ -465,14 +476,11 @@ Adding a few internal states for reactivity
         const dir = new THREE.Vector3();
 
         // right line
-        this.lines[0].getWorldPosition(pos);
-        this.lines[0].getWorldDirection(dir);
+        this.lines[1].getWorldPosition(pos);
+        this.lines[1].getWorldDirection(dir);
 
         raycaster.ray.origin = pos;
         raycaster.ray.direction = dir.multiplyScalar(-1);
-
-
-
 
         // calculate objects intersecting the picking ray
         const intersects = raycaster.intersectObjects(this.view.scene.children);

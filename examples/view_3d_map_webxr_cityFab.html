@@ -103,6 +103,8 @@
             const arButton = ARButton.createButton(view.renderer);
             viewerDiv.appendChild(arButton);
 
+            view.renderer.setClearColor(new THREE.Color(), 0);
+
             // ---------- DISPLAY ORTHO-IMAGES : ----------
             // Add one imagery layer to the scene. This layer's properties are
             // defined in a json file, but it could be defined as a plain js

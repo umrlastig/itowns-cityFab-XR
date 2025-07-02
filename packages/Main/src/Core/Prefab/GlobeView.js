@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 import View, { VIEW_EVENTS } from 'Core/View';
 import GlobeControls from 'Controls/GlobeControls';
-import { Coordinates, ellipsoidSizes } from '@itowns/geographic';
+import { Coordinates, ellipsoidSizes, CoordStars } from '@itowns/geographic';
 import GlobeLayer from 'Core/Prefab/Globe/GlobeLayer';
 import Atmosphere from 'Core/Prefab/Globe/Atmosphere';
 import CameraUtils from 'Utils/CameraUtils';
@@ -167,6 +167,36 @@ class GlobeView extends View {
     getMetersToDegrees(meters = 1) {
         return THREE.MathUtils.radToDeg(2 * Math.asin(meters / (2 * ellipsoidSizes.x)));
     }
+
+    /**
+     * 
+     * @returns {THREE.Vector3} sun position
+     */
+    simulateSun() {
+        // Get camera's current position
+        const cameraPos = this.camera.camera3D.position;
+        const geoCoords = new Coordinates('EPSG:4978', cameraPos.x, cameraPos.y, cameraPos.z).as('EPSG:4326');
+        const longitude = geoCoords.longitude;
+        const latitude = geoCoords.latitude;
+
+        // Get current date and time
+        const now = new Date();
+
+        // Compute sun position (replace with actual method from your iTowns version)
+        const sunPos = CoordStars.getSunPositionInScene(now, longitude, latitude);
+
+        // Convert azimuth and elevation to a directional vector
+        // const azimuth = sunPos.azimuth;   // in radians
+        // const elevation = sunPos.elevation; // in radians
+
+        // Spherical to Cartesian conversion
+        // const x = Math.cos(elevation) * Math.sin(azimuth);
+        // const y = Math.sin(elevation);
+        // const z = Math.cos(elevation) * Math.cos(azimuth);
+
+        return sunPos;
+    }
+
 }
 
 export default GlobeView;
