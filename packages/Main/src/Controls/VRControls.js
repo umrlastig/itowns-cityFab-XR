@@ -476,8 +476,8 @@ Adding a few internal states for reactivity
         const dir = new THREE.Vector3();
 
         // right line
-        this.lines[1].getWorldPosition(pos);
-        this.lines[1].getWorldDirection(dir);
+        this.lines[0].getWorldPosition(pos);
+        this.lines[0].getWorldDirection(dir);
 
         raycaster.ray.origin = pos;
         raycaster.ray.direction = dir.multiplyScalar(-1);
