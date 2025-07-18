@@ -182,17 +182,8 @@ class GlobeView extends View {
         // Get current date and time
         const now = new Date();
 
-        // Compute sun position (replace with actual method from your iTowns version)
+        // Compute sun position
         const sunPos = CoordStars.getSunPositionInScene(now, longitude, latitude);
-
-        // Convert azimuth and elevation to a directional vector
-        // const azimuth = sunPos.azimuth;   // in radians
-        // const elevation = sunPos.elevation; // in radians
-
-        // Spherical to Cartesian conversion
-        // const x = Math.cos(elevation) * Math.sin(azimuth);
-        // const y = Math.sin(elevation);
-        // const z = Math.cos(elevation) * Math.cos(azimuth);
 
         return sunPos;
     }

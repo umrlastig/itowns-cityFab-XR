@@ -36,12 +36,12 @@
 
 
             // ---- Get Pos from server ----
-            const baseUrl = 'http://localhost:8000';
+            const baseUrl = 'http://localhost:8081';
             let geoPos = null;
 
             // function getGeoPos () {
             //     let pos = null;
-            //     fetch(`${baseUrl}/geoPos`, {
+            //     fetch(`${baseUrl}`, {
             //         method: 'GET',
             //         })
             //         .then((response) => {
@@ -57,10 +57,14 @@
             //         .then((json) => {
             //             if (!json) return;  
             //             pos = json;
-            //             // console.log(pos);
+            //             console.log(pos);
             //             return pos;
             //         });               
-            // }        
+            // }    
+            
+            // getGeoPos();
+
+            // fetch('http://127.0.0.1:8081').then(res => res.text()).then(console.log).catch(console.error);
 
 
             // ------ Get geolocisation from helmet ------
@@ -82,7 +86,7 @@
             // let longitude = 2.587640, latitude = 48.840638; // mlv
             //var longitude = 2.4223264, latitude = 48.8447549; // smd
             //var longitude = 2.7922434, latitude = 50.4577818; // loos
-            //var longitude = 3.294129, latitude = 48.483560; // gouaix
+            // var longitude = 3.294129, latitude = 48.483560; // gouaix
             //var longitude = 3.855731 , latitude = 43.959178; // st hippo
 
             // Define camera initial position
@@ -103,7 +107,7 @@
             const arButton = ARButton.createButton(view.renderer);
             viewerDiv.appendChild(arButton);
 
-            view.renderer.setClearColor(new THREE.Color(), 0);
+            // view.renderer.setClearColor(new THREE.Color(), 0);
 
             // ---------- DISPLAY ORTHO-IMAGES : ----------
             // Add one imagery layer to the scene. This layer's properties are
@@ -114,7 +118,7 @@
                 view.addLayer(new itowns.ColorLayer('Ortho', config),
                 );
             });
-            view.tileLayer.opacity = 1;
+            // view.tileLayer.opacity = 0;
 
             // ---------- DISPLAY A DIGITAL ELEVATION MODEL : ----------
             // Add two elevation layers, each with a different level of detail.
@@ -196,6 +200,7 @@
                 style: {
                     fill: {
                         color: colorBuildings,
+                        opacity: 0.2,
                         base_altitude: altitudeBuildings,
                         extrusion_height: extrudeBuildings,
                     }

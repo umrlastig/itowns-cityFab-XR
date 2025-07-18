@@ -7,7 +7,7 @@ import { XRControllerModelFactory } from 'ThreeExtended/webxr/XRControllerModelF
  * @property {Array} controllers - WebXR controllers list
  * */
 class VRControls {
-    static MIN_DELTA_ALTITUDE = 1;
+    static MIN_DELTA_ALTITUDE = 0.2;
     static MAX_NUMBER_CONTROLLERS = 2;  // For now, we are fully supporting a maximum of 2 controllers.
     /**
      * Requires a contextXR variable.
@@ -70,7 +70,7 @@ class VRControls {
                 this.setupEventListeners(controller);
             });
 
-            this.addColorCube();
+            // this.addColorCube();
 
             controller.addEventListener('disconnected', function removeCtrl() {
                 this.remove(this.children[0]);
@@ -260,7 +260,7 @@ Adding a few internal states for reactivity
     getSpeedFactor() {
         // eslint-disable-next-line no-unused-vars
         const altitude = this.view.controls.getCameraCoordinate ? this.view.controls.getCameraCoordinate().altitude : 1;
-        return 0.5; // TODO: Adjust if needed -> add as a config ?
+        return 0.2; // TODO: Adjust if needed -> add as a config ?
     }
 
     // Calculate a yaw rotation quaternion based on an axis value from the joystick.
@@ -457,40 +457,44 @@ Adding a few internal states for reactivity
     /* c8 ignore next 3 */
     onLeftButtonPressed() {
         // get mesh correspond to cleabs
-        let dateCreation;
-        // For debugging: search for the creation date of a specific cleabs in all child meshes
-        const cleabsTarget = 'BATIMENT0000000336960181';
-        const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
-        let meshWithCleabs;
-        for (const child of layer.object3d.children) {
-            const obj = this.findFeatureInChildren(child);
-            dateCreation = this.findDateCreationByCleabs(obj[1], cleabsTarget);
-            if (dateCreation) {
-                meshWithCleabs = obj[0];
-                break;
-            }
-        }
+        // let dateCreation;
+        // // For debugging: search for the creation date of a specific cleabs in all child meshes
+        // const cleabsTarget = 'BATIMENT0000000336960181';
+        // const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
+        // let meshWithCleabs;
+        // for (const child of layer.object3d.children) {
+        //     const obj = this.findFeatureInChildren(child);
+        //     dateCreation = this.findDateCreationByCleabs(obj[1], cleabsTarget);
+        //     if (dateCreation) {
+        //         meshWithCleabs = obj[0];
+        //         break;
+        //     }
+        // }
 
-        const raycaster = new THREE.Raycaster();
-        const pos = new THREE.Vector3();
-        const dir = new THREE.Vector3();
+        // const raycaster = new THREE.Raycaster();
+        // const pos = new THREE.Vector3();
+        // const dir = new THREE.Vector3();
 
-        // right line
-        this.lines[1].getWorldPosition(pos);
-        this.lines[1].getWorldDirection(dir);
+        // // right line
+        // this.lines[1].getWorldPosition(pos);
+        // this.lines[1].getWorldDirection(dir);
 
-        raycaster.ray.origin = pos;
-        raycaster.ray.direction = dir.multiplyScalar(-1);
+        // raycaster.ray.origin = pos;
+        // raycaster.ray.direction = dir.multiplyScalar(-1);
 
-        // calculate objects intersecting the picking ray
-        const intersects = raycaster.intersectObjects(this.view.scene.children);
-        if (intersects.length > 0 && intersects[0].object.name == 'button') {
-            const buttonGrip = intersects[0].object;
-            if (meshWithCleabs) {
-                meshWithCleabs.material = buttonGrip.material;
-                this.view.notifyChange();
-            }
-        }
+        // // calculate objects intersecting the picking ray
+        // const intersects = raycaster.intersectObjects(this.view.scene.children);
+        // if (intersects.length > 0 && intersects[0].object.name == 'button') {
+        //     const buttonGrip = intersects[0].object;
+        //     if (meshWithCleabs) {
+        //         meshWithCleabs.material = buttonGrip.material;
+        //         this.view.notifyChange();
+        //     }
+        // }
+
+        this.view.renderer.setClearColor(new THREE.Color(), 0);
+        this.view.tileLayer.opacity = 0;
+        this.view.notifyChange();
     }
 
     // Axis changed.
