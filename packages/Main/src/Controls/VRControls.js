@@ -7,7 +7,7 @@ import { XRControllerModelFactory } from 'ThreeExtended/webxr/XRControllerModelF
  * @property {Array} controllers - WebXR controllers list
  * */
 class VRControls {
-    static MIN_DELTA_ALTITUDE = 0.2;
+    static MIN_DELTA_ALTITUDE = 0;
     static MAX_NUMBER_CONTROLLERS = 2;  // For now, we are fully supporting a maximum of 2 controllers.
     /**
      * Requires a contextXR variable.
@@ -492,8 +492,36 @@ Adding a few internal states for reactivity
         //     }
         // }
 
+        function findMeshinChildren(featureMesh) {
+            const children = featureMesh.children[0];
+            if (children.isMesh) {
+                // children.material.transparent = true;
+                // children.material.opacity = 0.1;
+
+                const material = new THREE.MeshBasicMaterial({ color: children.material.color });
+                material.transparent = true;
+                material.opacity = 0.5;
+                children.material = material;
+            } else {
+                findMeshinChildren(children);
+            }
+        }
+
         this.view.renderer.setClearColor(new THREE.Color(), 0);
         this.view.tileLayer.opacity = 0;
+
+        // Add the event listener only once when the layer is ready
+        const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
+        if (layer) {
+            layer.whenReady.then(() => {
+                layer.object3d.children.forEach((featureMesh) => {
+                    findMeshinChildren(featureMesh);
+                    this.view.notifyChange();
+                });
+            });
+        }
+
+
         this.view.notifyChange();
     }
 

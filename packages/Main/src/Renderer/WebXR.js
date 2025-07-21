@@ -92,8 +92,7 @@ class WebXR extends THREE.EventDispatcher {
         xr.addEventListener('sessionstart', () => {
             xr.enabled = true;
 
-            // xr.getReferenceSpace('local');
-            xr.setReferenceSpaceType('unbounded');
+            xr.getReferenceSpace('local');
 
             // To avoid controllers precision issues, headset should handle camera position
             const vrHeadSet = new THREE.Object3D();

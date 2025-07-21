@@ -18,7 +18,6 @@
                 }
             }
         </script>
-
         <!-- Import iTowns source code -->
         <script src="../dist/itowns.js"></script>
         <script src="../dist/debug.js"></script>
@@ -30,9 +29,9 @@
         </div>
         <script type="module">
             import * as THREE from 'three';
-            import { ARButton } from 'three/addons/webxr/ARButton.js';
-            import { createText } from 'three/addons/webxr/Text2D.js';
-            import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+            import { XRButton } from 'three/addons/webxr/XRButton.js';
+            // import { createText } from 'three/addons/webxr/Text2D.js';
+            // import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 
             // ---- Get Pos from server ----
@@ -103,9 +102,9 @@
             // Create a GlobeView
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
             
-            // Instantiate three's VR Button
-            const arButton = ARButton.createButton(view.renderer);
-            viewerDiv.appendChild(arButton);
+            // Instantiate three's AR Button
+            const xrButton = XRButton.createButton(view.renderer, {requiredFeatures: ['unbounded']}); //not supported with Immersive web simulator but working on Quest bowser
+            viewerDiv.appendChild(xrButton);
 
             // view.renderer.setClearColor(new THREE.Color(), 0);
 
