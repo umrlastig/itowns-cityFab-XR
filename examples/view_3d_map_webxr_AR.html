@@ -33,35 +33,32 @@
             // import { createText } from 'three/addons/webxr/Text2D.js';
             // import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
+            //Meta questr IP : 192.168.1.178
 
             // ---- Get Pos from server ----
-            const baseUrl = 'http://localhost:8010';
-            let geoPos = null;
+            // const baseUrl = 'https://192.168.1.34:8011';
 
-            function getGeoPos () {
-                fetch(`${baseUrl}/geopos`, {
-                    method: 'GET',
-                    })
-                    .then((response) => {
-                        try {
-                        if (!response.ok) {
-                            throw new Error(`Response status: ${response.status}`);
-                        }
-                        return response.json();
-                        } catch (error) {
-                        console.error(error.message);
-                        }
-                    })
-                    .then((json) => { 
-                        if (!json) return;  
-                        console.log(json);
-                        return json;
-                    });               
-            }    
-            
-            // geoPos = await getGeoPos();
+            // async function getGeoPos () {
+            //     try {
+            //         const response = await fetch(`${baseUrl}`, {
+            //             method: 'GET'
+            //         });
 
-            // fetch('http://127.0.0.1:8081').then(res => res.text()).then(console.log).catch(console.error);
+            //         if (!response.ok) {
+            //             throw new Error(`Response status: ${response.status}`);
+            //         }
+            //         const data = await response.json();
+            //         console.log(data);
+            //         return data;
+            //     } catch (error) {
+            //         console.error(error.message);
+            //         return null;
+            //     }
+            // }  
+            // let geoPos = await getGeoPos();
+
+            const data = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json());
+            console.log(data.latitude, data.longitude, data.altitude);  
 
             // ------ Get geolocalisation from helmet ------
             function getCurrentPosition() {
@@ -74,18 +71,19 @@
                     // getGeoPos();
                 });
             }
-            console.log(geoPos);
+            // console.log(geoPos);
 
-            const position = await getCurrentPosition();
+            // const position = await getCurrentPosition();
 
             // ---------- SETUP THE VR VIEW : ----------
-            let longitude = position.coords.longitude, latitude = position.coords.latitude;
+            let longitude = data.longitude, latitude = data.latitude;
             // let longitude = 2.587640, latitude = 48.840638; // mlv
             //var longitude = 2.4223264, latitude = 48.8447549; // smd
             //var longitude = 2.7922434, latitude = 50.4577818; // loos
             // var longitude = 3.294129, latitude = 48.483560; // gouaix
             //var longitude = 3.855731 , latitude = 43.959178; // st hippo
 
+             console.log('init view');
             // Define camera initial position
             const placement = {
                 coord: new itowns.Coordinates('EPSG:4326', longitude, latitude),
@@ -222,8 +220,10 @@
             function displayGNSSmasterTCPserverStatus(){
                 const htmlInfo = document.getElementById('info');
                 htmlInfo.innerHTML = '';
-                htmlInfo.innerHTML += `<li><b>TCP server status:</b> ${geoPos}</li>`;
+                htmlInfo.innerHTML += `<li><b>TCP server status:</b>${data.longitude} </li>`;
             }
+
+            console.log('html info');
 
             displayGNSSmasterTCPserverStatus();
 
