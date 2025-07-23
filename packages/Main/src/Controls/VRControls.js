@@ -396,11 +396,12 @@ Adding a few internal states for reactivity
     }
 
     // Right button pressed.
+    // eslint-disable-next-line no-unused-vars
     onRightButtonPressed(data) {
         const sunPos = this.view.simulateSun();
 
-        const geometrySun = new THREE.SphereGeometry(15, 32, 16); 
-        const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 }); 
+        const geometrySun = new THREE.SphereGeometry(15, 32, 16);
+        const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 });
         const sun = new THREE.Mesh(geometrySun, materialSun);
         sun.position.set(sunPos.x, sunPos.y, sunPos.z);
         sun.updateMatrixWorld();

@@ -4,7 +4,7 @@
         "view_25d_map": "2.5D map",
         "view_2d_map": "2D map",
         "view_3d_map_webxr": "3D map WebXR",
-        "view_3d_map_webxr_cityFab": "3D map WebXR CityFab",
+        "view_3d_map_webxr_AR": "3D map WebXR AR",
         "view_multiglobe": "Multiple globes",
         "view_multi_25d": "Multiple 2.5D maps",
         "view_immersive": "Immersive view",

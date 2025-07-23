@@ -169,7 +169,7 @@ class GlobeView extends View {
     }
 
     /**
-     * 
+     *
      * @returns {THREE.Vector3} sun position
      */
     simulateSun() {
@@ -187,7 +187,6 @@ class GlobeView extends View {
 
         return sunPos;
     }
-
 }
 
 export default GlobeView;
