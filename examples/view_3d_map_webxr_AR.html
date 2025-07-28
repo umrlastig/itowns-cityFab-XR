@@ -195,7 +195,7 @@
                 htmlInfo.innerHTML = '';
                 Object.entries(properties).forEach(([key, value]) => {
                     if (value && key[0] !== '_' && key !== 'geometry_name') {
-                        htmlInfo.innerHTML += `<li><b>${key}:</b> ${value}</li>`;
+                        htmlInfo.innerHTML += `<li><b>${key}:</b> ${value}</li>`;  
                     }
                 });
             }
@@ -269,12 +269,16 @@
                 // create sun calibration button
                 const sunButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00);
                 const sunButtonText = createText('Sun', 0.06);
+                sunButton.name = 'sunButton';
+                sunButtonText.name = 'sunButton';
                 sunButton.add(sunButtonText);
                 sunButtonText.position.set(0, 0, 0.0051);
                 
                 // create buildins calibration button
                 const buildingsButton = makeButtonMesh(0.3, 0.1, 0.01, 0x008000);
                 const buildingsButtonText = createText('Buildings', 0.06);
+                buildingsButton.name = 'buildingsButton';
+                buildingsButtonText.name = 'buildingsButton';
                 buildingsButton.add(buildingsButtonText);
                 buildingsButtonText.position.set(0, 0, 0.0051);
 
@@ -285,6 +289,46 @@
                     const groupCubes = makeColorCube();
                     view.scene.add(groupCubes);
                     this.getController(0).add(groupCubes);
+
+                    const controllerRight = this.getController(0);
+                    // highlightButton
+                    let highlightButton = function update(){
+                         // select button
+                        
+                        let line;
+                        controllerRight.children.forEach(element => {
+                            if (element.isLine){
+                                line = element;
+                            }
+                        });
+                        // console.log(line);
+
+                        const raycaster = new THREE.Raycaster();
+                        const pos = new THREE.Vector3();
+                        const dir = new THREE.Vector3();
+
+                        if (line){
+                            line.getWorldPosition(pos);
+                            line.getWorldDirection(dir);
+
+                            raycaster.ray.origin = pos;
+                            raycaster.ray.direction = dir.multiplyScalar(-1);
+
+                            // calculate objects intersecting the picking ray
+                            const intersects = raycaster.intersectObjects(view.scene.children);
+                            if (intersects.length > 0 && intersects[0].object.name == 'buildingsButton') {
+                                const buttonBuilding = buildingsButton;
+                                buttonBuilding.material = new THREE.MeshBasicMaterial({ color: 0x025C02 });
+                                view.notifyChange();
+                            } else{
+                                buildingsButton.material = new THREE.MeshBasicMaterial({ color: 0x008000 });
+                                view.notifyChange();
+                            }
+                        } 
+                    }
+                    
+                    view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.BEFORE_RENDER, highlightButton);
+
                 });
 
                 this.getController(1).addEventListener('connected', (event) => {
@@ -300,7 +344,7 @@
                 });
 
                 // overwrite right button to simulate sun
-                vrControls.onRightButtonPressed = function(evt) {
+                vrControls.onLeftButtonPressed = function(evt) {
                     const sunPos = view.simulateSun();
                     const geometrySun = new THREE.SphereGeometry(15, 32, 16);
                     const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 });
@@ -320,6 +364,35 @@
 
                     view.scene.add(line);
                 };
+
+                vrControls.onRightButtonPressed = function(evt) {
+                    // select button
+                    const controllerRight = this.controllers.filter( (controller) => controller.name == 'right')[0];
+                    
+                    let line;
+                    controllerRight.children.forEach(element => {element.isLine ? line = element : console.warn('No line in controler') });
+                    console.log(line);
+
+                    const raycaster = new THREE.Raycaster();
+                    const pos = new THREE.Vector3();
+                    const dir = new THREE.Vector3();
+
+                    if (line){
+                        line.getWorldPosition(pos);
+                        line.getWorldDirection(dir);
+
+                        raycaster.ray.origin = pos;
+                        raycaster.ray.direction = dir.multiplyScalar(-1);
+
+                        // calculate objects intersecting the picking ray
+                        const intersects = raycaster.intersectObjects(view.scene.children);
+                        if (intersects.length > 0 && intersects[0].object.name == 'buildingsButton') {
+                            const buttonBuilding = intersects[0].object;
+                            buttonBuilding.material = new THREE.MeshBasicMaterial({ color: 0x025C02 })
+                            view.notifyChange();
+                        }
+                    }
+                }
             });
 
             const coord = new itowns.Coordinates('EPSG:4978', 4201605.618022248, 189923.89924819994, 4778955.033659566);
@@ -333,7 +406,7 @@
             //     itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', sunButton); 
             // };
 
-            // view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.BEFORE_RENDER, setObjectToGround);
+            // 
 
         </script>
     </body>
