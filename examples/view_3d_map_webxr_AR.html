@@ -30,35 +30,11 @@
         <script type="module">
             import * as THREE from 'three';
             import { XRButton } from 'three/addons/webxr/XRButton.js';
-            // import { createText } from 'three/addons/webxr/Text2D.js';
-            // import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+            import { createText } from 'three/addons/webxr/Text2D.js';
 
-            //Meta questr IP : 192.168.1.178
+            // const data = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json());
+            // console.log(data.latitude, data.longitude, data.altitude); 
 
-            // ---- Get Pos from server ----
-            // const baseUrl = 'https://192.168.1.34:8011';
-
-            // async function getGeoPos () {
-            //     try {
-            //         const response = await fetch(`${baseUrl}`, {
-            //             method: 'GET'
-            //         });
-
-            //         if (!response.ok) {
-            //             throw new Error(`Response status: ${response.status}`);
-            //         }
-            //         const data = await response.json();
-            //         console.log(data);
-            //         return data;
-            //     } catch (error) {
-            //         console.error(error.message);
-            //         return null;
-            //     }
-            // }  
-            // let geoPos = await getGeoPos();
-
-            const data = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json());
-            console.log(data.latitude, data.longitude, data.altitude);  
 
             // ------ Get geolocalisation from helmet ------
             function getCurrentPosition() {
@@ -71,16 +47,19 @@
                     // getGeoPos();
                 });
             }
-            // console.log(geoPos);
 
-            // const position = await getCurrentPosition();
+
+            const position = await getCurrentPosition();
+
 
             // ---------- SETUP THE VR VIEW : ----------
-            let longitude = data.longitude, latitude = data.latitude;
+            // let longitude = data.longitude, latitude = data.latitude; //connect to TCP server
+            // let longitude = position.longitude, latitude = position.latitude; // get geoloc
             // let longitude = 2.587640, latitude = 48.840638; // mlv
             //var longitude = 2.4223264, latitude = 48.8447549; // smd
             //var longitude = 2.7922434, latitude = 50.4577818; // loos
-            // var longitude = 3.294129, latitude = 48.483560; // gouaix
+            var longitude = 3.294129, latitude = 48.483560; // gouaix
+
             //var longitude = 3.855731 , latitude = 43.959178; // st hippo
 
              console.log('init view');
@@ -99,7 +78,7 @@
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
             
             // Instantiate three's XR Button
-            const xrButton = XRButton.createButton(view.renderer, {requiredFeatures: ['unbounded']}); //not supported with Immersive web simulator but working on Quest bowser
+            const xrButton = XRButton.createButton(view.renderer, {requiredFeatures: ['local']}); //not supported with Immersive web simulator but working on Quest bowser
             viewerDiv.appendChild(xrButton);
 
             // ---------- DISPLAY ORTHO-IMAGES : ----------
@@ -199,31 +178,11 @@
             });
             view.addLayer(wfsBuildingLayer);
 
-            const coord = new itowns.Coordinates('EPSG:4978', 4201605.618022248, 189923.89924819994, 4778955.033659566);
-            // set ENH orientation, looking at the sky (Z axis), so Y axis look to the north
-            // mesh.lookAt(placement.coord.geodesicNormal.clone().add(mesh.position));
-            // mesh.lookAt(placement.coord.geodesicNormal.clone().add(mesh.position));
-
-            // set Object to the ground
-            // var setObjectToGround = function update(/* dt */) {
-            //     itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', mesh);
-            //     itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', whiteMesh);   
-            // };
-
-            // ---- Update ----
-            function update(/* dt */) {
-                // Add any specific update logic here if needed
-            }
-
-            view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.BEFORE_RENDER, update);
-
             function displayGNSSmasterTCPserverStatus(){
                 const htmlInfo = document.getElementById('info');
                 htmlInfo.innerHTML = '';
-                htmlInfo.innerHTML += `<li><b>TCP server status:</b>${data.longitude} </li>`;
+                htmlInfo.innerHTML += `<li><b>TCP server status:</b>${position.longitude} </li>`;
             }
-
-            console.log('html info');
 
             displayGNSSmasterTCPserverStatus();
 
@@ -268,6 +227,114 @@
                     // window.addEventListener('mousemove', picking, false);
                 });
             }
+
+
+
+            function makeButtonMesh( x, y, z, color ) {
+                const geometry = new THREE.BoxGeometry( x, y, z );
+                const material = new THREE.MeshBasicMaterial( { color: color } );
+                const buttonMesh = new THREE.Mesh( geometry, material );
+                buttonMesh.castShadow = true;
+                buttonMesh.receiveShadow = true;
+                return buttonMesh;
+		    }
+
+            /* Debug */
+            function makeColorCube(){
+                const groupSelectColor = new THREE.Group();
+
+                const red = makeButtonMesh(0.1, 0.1, 0.1, 0x008000, 1, false);
+                red.position.set(-0.2, 0, 0);
+                const green = makeButtonMesh(0.1, 0.1, 0.1, 0xFF0000, 1, false);
+                green.position.set(0, 0, 0);
+                const blue = makeButtonMesh(0.1, 0.1, 0.1, 0x0000FF, 1, false);
+                blue.position.set(0.2, 0, 0);
+
+                groupSelectColor.add(red);
+                groupSelectColor.add(green);
+                groupSelectColor.add(blue);
+
+                groupSelectColor.position.set(0, 0.2, -0.5);
+                groupSelectColor.name = 'selector';
+                return groupSelectColor;
+            }
+
+
+            const xr = view.renderer.xr;
+
+            // listen for 'xrSessionStarted' on the view or renderer
+            xr.addEventListener('sessionstart', function(event) {
+                const vrControls = view.webXR.vrControls;
+
+                // create sun calibration button
+                const sunButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00);
+                const sunButtonText = createText('Sun', 0.06);
+                sunButton.add(sunButtonText);
+                sunButtonText.position.set(0, 0, 0.0051);
+                
+                // create buildins calibration button
+                const buildingsButton = makeButtonMesh(0.3, 0.1, 0.01, 0x008000);
+                const buildingsButtonText = createText('Buildings', 0.06);
+                buildingsButton.add(buildingsButtonText);
+                buildingsButtonText.position.set(0, 0, 0.0051);
+
+                const titleText = createText('Calibration mode', 0.06);
+
+
+                this.getController(0).addEventListener('connected', (event) => {
+                    const groupCubes = makeColorCube();
+                    view.scene.add(groupCubes);
+                    this.getController(0).add(groupCubes);
+                });
+
+                this.getController(1).addEventListener('connected', (event) => {
+                    sunButton.position.set(-0.15, 0.2, 0);
+                    buildingsButton.position.set(0.15, 0.2, 0);
+                    titleText.position.set(0, 0.3, 0);    
+
+                    view.scene.add(sunButton);
+                    view.scene.add(buildingsButton);
+                    this.getController(1).add(sunButton);
+                    this.getController(1).add(buildingsButton);
+                    this.getController(1).add(titleText);
+                });
+
+                // overwrite right button to simulate sun
+                vrControls.onRightButtonPressed = function(evt) {
+                    const sunPos = view.simulateSun();
+                    const geometrySun = new THREE.SphereGeometry(15, 32, 16);
+                    const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    const sun = new THREE.Mesh(geometrySun, materialSun);
+                    sun.position.set(sunPos.x, sunPos.y, sunPos.z);
+                    sun.updateMatrixWorld();
+                    view.scene.add(sun);
+
+                    const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5000)]);
+
+                    const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+                    const line = new THREE.Line(geometry, material);
+
+                    line.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y, view.camera.camera3D.position.z);
+                    line.lookAt(sunPos);
+                    line.updateMatrixWorld();
+
+                    view.scene.add(line);
+                };
+            });
+
+            const coord = new itowns.Coordinates('EPSG:4978', 4201605.618022248, 189923.89924819994, 4778955.033659566);
+            // set ENH orientation, looking at the sky (Z axis), so Y axis look to the north
+            // sunButtonText.lookAt(coord.geodesicNormal.clone().add(sunButtonText.position));
+            // sunButton.lookAt(coord.geodesicNormal.clone().add(sunButton.position));
+            // // mesh.lookAt(placement.coord.geodesicNormal.clone().add(mesh.position));
+
+            // // set Object to the ground
+            // var setObjectToGround = function update(/* dt */) {
+            //     itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', sunButton); 
+            // };
+
+            // view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.BEFORE_RENDER, setObjectToGround);
+
         </script>
     </body>
 </html>

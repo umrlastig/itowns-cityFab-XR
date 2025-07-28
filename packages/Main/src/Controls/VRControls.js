@@ -70,8 +70,6 @@ class VRControls {
                 this.setupEventListeners(controller);
             });
 
-            // this.addColorCube();
-
             controller.addEventListener('disconnected', function removeCtrl() {
                 this.remove(this.children[0]);
             });
@@ -79,49 +77,12 @@ class VRControls {
     }
 
 
-    /**
-     * Debug
-     */
-    addColorCube() {
-        // --- Create button mesh ---
-        function makeButtonMesh(x, y, z, c, opacity, wireframe) {
-            const geometry = new THREE.BoxGeometry(x, y, z);
-            const material = new THREE.MeshBasicMaterial({ color: c });
-            material.wireframe = wireframe;
-            material.transparent = true;
-            material.opacity = opacity;
-            const buttonMesh = new THREE.Mesh(geometry, material);
-            buttonMesh.name = 'button';
 
-            return buttonMesh;
-        }
-
-        const groupSelectColor = new THREE.Group();
-
-        const red = makeButtonMesh(0.1, 0.1, 0.1, 0x008000, 1, false);
-        red.position.set(-0.2, 0, 0);
-        const green = makeButtonMesh(0.1, 0.1, 0.1, 0xFF0000, 1, false);
-        green.position.set(0, 0, 0);
-        const blue = makeButtonMesh(0.1, 0.1, 0.1, 0x0000FF, 1, false);
-        blue.position.set(0.2, 0, 0);
-
-        groupSelectColor.add(red);
-        groupSelectColor.add(green);
-        groupSelectColor.add(blue);
-
-        groupSelectColor.position.set(0, 0.2, -0.5);
-        groupSelectColor.name = 'selector';
-
-        this.webXRManager.getController(1).add(groupSelectColor);
-    }
 
     bindGripController(controllerModelFactory, gripController, vrHeadSet) {
         gripController.add(controllerModelFactory.createControllerModel(gripController));
         vrHeadSet.add(gripController);
     }
-
-
-
 
     // Register event listeners for controllers.
     setupEventListeners(controller) {
@@ -396,27 +357,8 @@ Adding a few internal states for reactivity
     }
 
     // Right button pressed.
-    // eslint-disable-next-line no-unused-vars
-    onRightButtonPressed(data) {
-        const sunPos = this.view.simulateSun();
-
-        const geometrySun = new THREE.SphereGeometry(15, 32, 16);
-        const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-        const sun = new THREE.Mesh(geometrySun, materialSun);
-        sun.position.set(sunPos.x, sunPos.y, sunPos.z);
-        sun.updateMatrixWorld();
-        this.view.scene.add(sun);
-
-        const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5000)]);
-
-        const material = new THREE.LineBasicMaterial({ color: 0xffff00 }); // yellow line
-        const line = new THREE.Line(geometry, material);
-
-        line.position.set(this.view.camera.camera3D.position.x, this.view.camera.camera3D.position.y, this.view.camera.camera3D.position.z);
-        line.lookAt(sunPos);
-        line.updateMatrixWorld();
-
-        this.view.scene.add(line);
+    onRightButtonPressed() {
+        // No operation needed yet.
     }
 
 
