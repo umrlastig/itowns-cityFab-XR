@@ -55,10 +55,10 @@
             // ---------- SETUP THE VR VIEW : ----------
             // let longitude = data.longitude, latitude = data.latitude; //connect to TCP server
             // let longitude = position.longitude, latitude = position.latitude; // get geoloc
-            // let longitude = 2.587640, latitude = 48.840638; // mlv
+            let longitude = 2.587640, latitude = 48.840638; // mlv
             //var longitude = 2.4223264, latitude = 48.8447549; // smd
             //var longitude = 2.7922434, latitude = 50.4577818; // loos
-            var longitude = 3.294129, latitude = 48.483560; // gouaix
+            // var longitude = 3.294129, latitude = 48.483560; // gouaix
 
             //var longitude = 3.855731 , latitude = 43.959178; // st hippo
 
@@ -228,8 +228,6 @@
                 });
             }
 
-
-
             function makeButtonMesh( x, y, z, color ) {
                 const geometry = new THREE.BoxGeometry( x, y, z );
                 const material = new THREE.MeshBasicMaterial( { color: color } );
@@ -259,7 +257,6 @@
                 return groupSelectColor;
             }
 
-
             const xr = view.renderer.xr;
 
             // listen for 'xrSessionStarted' on the view or renderer
@@ -283,7 +280,6 @@
                 buildingsButtonText.position.set(0, 0, 0.0051);
 
                 const titleText = createText('Calibration mode', 0.06);
-
 
                 this.getController(0).addEventListener('connected', (event) => {
                     // const groupCubes = makeColorCube();
@@ -315,18 +311,19 @@
                             // calculate objects intersecting the picking ray
                             const intersects = raycaster.intersectObjects(view.scene.children);
                             if (intersects.length > 0 && intersects[0].object.name == 'buildingsButton') {
-                                const buttonBuilding = buildingsButton;
-                                buttonBuilding.material = new THREE.MeshBasicMaterial({ color: 0x025C02 });
-                                view.notifyChange();
-                            } else{
-                                buildingsButton.material = new THREE.MeshBasicMaterial({ color: 0x008000 });
-                                view.notifyChange();
+                                buildingsButton.material = new THREE.MeshBasicMaterial({ color: 0x025C02 });
+                            }  else if (intersects.length > 0 && intersects[0].object.name == 'sunButton') {
+                                sunButton.material = new THREE.MeshBasicMaterial({ color: 0xC9C904 });
                             }
+                            else{
+                                buildingsButton.material = new THREE.MeshBasicMaterial({ color: 0x008000 });
+                                sunButton.material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                            }
+                            view.notifyChange();
                         } 
                     }
                     
                     view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.BEFORE_RENDER, highlightButton);
-
                 });
 
                 this.getController(1).addEventListener('connected', (event) => {
@@ -344,34 +341,101 @@
                 function initBuildingsMode(){
                     sunButton.visible = false;
                     buildingsButton.visible = false;
-                    titleText.visible = false;  
-                    const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03); 
+                    titleText.visible = false;
+                    const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03);
                     text.position.set(0.2, 0.2, 0);
-                    // text.updateMatrixWorld();
-                    view.webXR.vrControls.controllers[1].add(text); 
-                    view.notifyChange();
+                    view.webXR.vrControls.controllers[1].add(text);
+                }
+
+                function initSunMode(){
+                    sunButton.visible = false;
+                    buildingsButton.visible = false;
+                    titleText.visible = false;
+
+                    const text = createText('Sun mode : overlay the target on the sun to calibrate the scene', 0.03);
+                    text.position.set(0.2, 0.2, 0);
+                    view.webXR.vrControls.controllers[1].add(text);
+
+                    const geometry = new THREE.SphereGeometry(15, 32, 16); 
+                    const material = new THREE.MeshBasicMaterial({color: 0xffff00}); 
+                    const sphere = new THREE.Mesh(geometry, material);
+                    sphere.scale.set(0.01, 0.01, 0.01);
+                    sphere.position.set(0, 0, -3);
+                    view.scene.add(sphere);
+                    // view.webXR.vrControls.controllers[1].add(sphere);
+                    view.webXR.vrControls.groupXR.children[0].add(sphere);
+
+
+                    // overwrite left button to simulate sun
+                    vrControls.onLeftButtonPressed = function(evt) {
+                        // const sunPos = view.simulateSun();
+                        // const geometrySun = new THREE.SphereGeometry(15, 32, 16);
+                        // const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                        // const sun = new THREE.Mesh(geometrySun, materialSun);
+                        // sun.position.set(sunPos.x, sunPos.y, sunPos.z);
+                        // sun.updateMatrixWorld();
+                        // view.scene.add(sun);
+
+                        // const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5000)]);
+
+                        // const material = new THREE.LineBasicMaterial({ color: 0xffff00 }); 
+                        // const line = new THREE.Line(geometry, material);
+
+                        // line.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y, view.camera.camera3D.position.z);
+                        // line.lookAt(sunPos);
+                        // line.updateMatrixWorld();
+
+                        // view.scene.add(line);
+                    };
                 }
 
                 // overwrite left button to simulate sun
                 vrControls.onLeftButtonPressed = function(evt) {
-                    const sunPos = view.simulateSun();
-                    const geometrySun = new THREE.SphereGeometry(15, 32, 16);
-                    const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-                    const sun = new THREE.Mesh(geometrySun, materialSun);
-                    sun.position.set(sunPos.x, sunPos.y, sunPos.z);
-                    sun.updateMatrixWorld();
-                    view.scene.add(sun);
+                    // const sunPos = view.simulateSun();
+                    // const geometrySun = new THREE.SphereGeometry(15, 32, 16);
+                    // const materialSun = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    // const sun = new THREE.Mesh(geometrySun, materialSun);
+                    // sun.position.set(sunPos.x, sunPos.y, sunPos.z);
+                    // sun.updateMatrixWorld();
+                    // view.scene.add(sun);
 
-                    const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5000)]);
+                    // const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5000)]);
 
-                    const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
-                    const line = new THREE.Line(geometry, material);
+                    // const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+                    // const line = new THREE.Line(geometry, material);
 
-                    line.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y, view.camera.camera3D.position.z);
-                    line.lookAt(sunPos);
-                    line.updateMatrixWorld();
+                    // line.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y, view.camera.camera3D.position.z);
+                    // line.lookAt(sunPos);
+                    // line.updateMatrixWorld();
 
-                    view.scene.add(line);
+                    // view.scene.add(line);
+
+                    function findMeshinChildren(featureMesh) {
+                        const children = featureMesh.children[0];
+                        if (children.isMesh) {
+                            const material = new THREE.MeshBasicMaterial({ color: children.material.color });
+                            material.transparent = true;
+                            material.opacity = 0.5;
+                            children.material = material;
+                        } else {
+                            findMeshinChildren(children);
+                        }
+                    }
+
+                    this.view.renderer.setClearColor(new THREE.Color(), 0);
+                    this.view.tileLayer.opacity = 0;
+
+                    // Add the event listener only once when the layer is ready
+                    const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
+                    if (layer) {
+                        layer.whenReady.then(() => {
+                            layer.object3d.children.forEach((featureMesh) => {
+                                findMeshinChildren(featureMesh);
+                                this.view.notifyChange();
+                            });
+                        });
+                    }
+                    this.view.notifyChange();
                 };
 
                 vrControls.onRightButtonPressed = function(evt) {
@@ -395,7 +459,10 @@
                         // calculate objects intersecting the picking ray
                         const intersects = raycaster.intersectObjects(view.scene.children);
                         if (intersects.length > 0 && intersects[0].object.name == 'buildingsButton') {
-                            initBuildingsMode();
+                            initBuildingsMode(); // buildings mode calibration
+                            view.notifyChange();
+                        } else if (intersects.length > 0 && intersects[0].object.name == 'sunButton') {
+                            initSunMode(); // sun mode calibration
                             view.notifyChange();
                         }
                     }

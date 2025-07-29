@@ -401,7 +401,7 @@ Adding a few internal states for reactivity
     onLeftButtonPressed() {
         // get mesh correspond to cleabs
         // let dateCreation;
-        // // For debugging: search for the creation date of a specific cleabs in all child meshes
+        // For debugging: search for the creation date of a specific cleabs in all child meshes
         // const cleabsTarget = 'BATIMENT0000000336960181';
         // const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
         // let meshWithCleabs;
@@ -435,37 +435,37 @@ Adding a few internal states for reactivity
         //     }
         // }
 
-        function findMeshinChildren(featureMesh) {
-            const children = featureMesh.children[0];
-            if (children.isMesh) {
-                // children.material.transparent = true;
-                // children.material.opacity = 0.1;
+        // function findMeshinChildren(featureMesh) {
+        //     const children = featureMesh.children[0];
+        //     if (children.isMesh) {
+        //         // children.material.transparent = true;
+        //         // children.material.opacity = 0.1;
 
-                const material = new THREE.MeshBasicMaterial({ color: children.material.color });
-                material.transparent = true;
-                material.opacity = 0.5;
-                children.material = material;
-            } else {
-                findMeshinChildren(children);
-            }
-        }
+        //         const material = new THREE.MeshBasicMaterial({ color: children.material.color });
+        //         material.transparent = true;
+        //         material.opacity = 0.5;
+        //         children.material = material;
+        //     } else {
+        //         findMeshinChildren(children);
+        //     }
+        // }
 
-        this.view.renderer.setClearColor(new THREE.Color(), 0);
-        this.view.tileLayer.opacity = 0;
+        // this.view.renderer.setClearColor(new THREE.Color(), 0);
+        // this.view.tileLayer.opacity = 0;
 
-        // Add the event listener only once when the layer is ready
-        const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
-        if (layer) {
-            layer.whenReady.then(() => {
-                layer.object3d.children.forEach((featureMesh) => {
-                    findMeshinChildren(featureMesh);
-                    this.view.notifyChange();
-                });
-            });
-        }
+        // // Add the event listener only once when the layer is ready
+        // const layer = this.view.getLayers().find(l => l.id === 'WFS Building');
+        // if (layer) {
+        //     layer.whenReady.then(() => {
+        //         layer.object3d.children.forEach((featureMesh) => {
+        //             findMeshinChildren(featureMesh);
+        //             this.view.notifyChange();
+        //         });
+        //     });
+        // }
 
 
-        this.view.notifyChange();
+        // this.view.notifyChange();
     }
 
     // Axis changed.
