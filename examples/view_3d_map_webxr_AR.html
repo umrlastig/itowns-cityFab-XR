@@ -286,22 +286,20 @@
 
 
                 this.getController(0).addEventListener('connected', (event) => {
-                    const groupCubes = makeColorCube();
-                    view.scene.add(groupCubes);
-                    this.getController(0).add(groupCubes);
+                    // const groupCubes = makeColorCube();
+                    // view.scene.add(groupCubes);
+                    // this.getController(0).add(groupCubes);
 
                     const controllerRight = this.getController(0);
+
                     // highlightButton
-                    let highlightButton = function update(){
-                         // select button
-                        
+                    let highlightButton = function update(){                        
                         let line;
                         controllerRight.children.forEach(element => {
                             if (element.isLine){
                                 line = element;
                             }
                         });
-                        // console.log(line);
 
                         const raycaster = new THREE.Raycaster();
                         const pos = new THREE.Vector3();
@@ -343,7 +341,18 @@
                     this.getController(1).add(titleText);
                 });
 
-                // overwrite right button to simulate sun
+                function initBuildingsMode(){
+                    sunButton.visible = false;
+                    buildingsButton.visible = false;
+                    titleText.visible = false;  
+                    const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03); 
+                    text.position.set(0.2, 0.2, 0);
+                    // text.updateMatrixWorld();
+                    view.webXR.vrControls.controllers[1].add(text); 
+                    view.notifyChange();
+                }
+
+                // overwrite left button to simulate sun
                 vrControls.onLeftButtonPressed = function(evt) {
                     const sunPos = view.simulateSun();
                     const geometrySun = new THREE.SphereGeometry(15, 32, 16);
@@ -371,7 +380,6 @@
                     
                     let line;
                     controllerRight.children.forEach(element => {element.isLine ? line = element : console.warn('No line in controler') });
-                    console.log(line);
 
                     const raycaster = new THREE.Raycaster();
                     const pos = new THREE.Vector3();
@@ -387,8 +395,7 @@
                         // calculate objects intersecting the picking ray
                         const intersects = raycaster.intersectObjects(view.scene.children);
                         if (intersects.length > 0 && intersects[0].object.name == 'buildingsButton') {
-                            const buttonBuilding = intersects[0].object;
-                            buttonBuilding.material = new THREE.MeshBasicMaterial({ color: 0x025C02 })
+                            initBuildingsMode();
                             view.notifyChange();
                         }
                     }
