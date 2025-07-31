@@ -99,7 +99,7 @@
             itowns.Fetcher.json('./layers/JSONLayers/IGN_MNT_HIGHRES.json').then(addElevationFromConfig);
             itowns.Fetcher.json('./layers/JSONLayers/WORLD_DTM.json').then(addElevationFromConfig);
 
-            // 5. Add WFS buildings layers
+            // Add WFS buildings layers
             const wfsBuildingSource = new itowns.WFSSource({
                 url: 'https://data.geopf.fr/wfs/ows?',
                 version: '2.0.0',
@@ -152,14 +152,14 @@
             });
             view.addLayer(wfsFilled);
 
-            // 6. UI information
+            // UI information
             function updateGNSSStatus() {
                 document.getElementById('info').innerHTML =
                     `<li><b>TCP server status:</b> ${geo.longitude}</li>`;
             }
             updateGNSSStatus();
 
-            // 7. Building picking / info
+            // Building picking / info
             function displayProperties(properties) {
                 const htmlInfo = document.getElementById('info');
                 htmlInfo.innerHTML = '';
@@ -185,7 +185,7 @@
             // XR Session: Add buttons and controllers
             setupXRCalibrationUI(view);
 
-            // (Optional) Add event listeners for picking, etc.
+            // Add event listeners for picking, etc.
             // view.getLayers().find(l => l.id === 'WFS Building')?.whenReady.then(() => {
             //     window.addEventListener('mousemove', buildingPicking, false);
             // });
@@ -256,16 +256,35 @@
                 });
 
                 // Handle calibration modes
-                function initBuildingsMode() {                     
+                function initBuildingsMode() {
+                    vrControls.onRightButtonPressed = function() {};// apply only once initBuildingMode      
+                    console.log('Buildings mode');             
                     sunButton.visible = false;
                     buildingsButton.visible = false;
                     titleText.visible = false;
                     const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03);
                     text.position.set(0.2, 0.2, 0);
                     view.webXR.vrControls.controllers[1].add(text); 
+
+                    // End buildings calibration
+                    vrControls.onLeftButtonPressed = function(evt) {
+                        [text].forEach(obj => {
+                            obj.geometry.dispose();
+                            obj.material.dispose();
+                            obj.visible = false;
+                            obj.parent.remove(obj);
+                        });
+
+                        view.notifyChange();
+                        startDemo();
+                    };
                 }
 
-                function initSunMode() {  sunButton.visible = false;
+                function initSunMode() {
+                    vrControls.onRightButtonPressed = function() {}; //apply only once initSunMode
+                    console.log('Buildings mode');             
+
+                    sunButton.visible = false;
                     buildingsButton.visible = false;
                     titleText.visible = false;
 
@@ -279,8 +298,7 @@
                     sphere.scale.set(0.01, 0.01, 0.01);
                     sphere.position.set(0, 0, -3);
                     view.scene.add(sphere);
-                    // view.webXR.vrControls.controllers[1].add(sphere);
-                    view.webXR.vrControls.groupXR.children[0].add(sphere);
+                    view.webXR.vrControls.groupXR.children[0].add(sphere); // follow camera
 
                     // Sun 3D
                     const sunPos = view.simulateSun();
@@ -292,14 +310,47 @@
                     line.updateMatrixWorld();
                     view.scene.add(line);
 
+                    // End sun calibration
                     vrControls.onLeftButtonPressed = function(evt) {
-                        const trans = vrControls.groupXR.position.clone();
-                        let offsetRotation;
+                        [line, sphere, text].forEach(obj => {
+                            obj.geometry.dispose();
+                            obj.material.dispose();
+                            obj.parent.remove(obj);
+                        });
 
-                        //  Only apply rotation on 1 axis at the time
-                        offsetRotation = vrControls.getRotationYaw(0.5);
-                        vrControls.applyTransformationToXR(trans, offsetRotation); // Yaw rotation only
-                    }
+                        view.notifyChange();
+                        startDemo();
+                    };
+
+                    // vrControls.onLeftButtonPressed = function(evt) {
+                    //     const trans = vrControls.groupXR.position.clone();
+                    //     let offsetRotation;
+
+                    //     //  Only apply rotation on 1 axis at the time
+                    //     offsetRotation = vrControls.getRotationYaw(0.5);
+                    //     vrControls.applyTransformationToXR(trans, offsetRotation); // Yaw rotation only
+                    // }
+
+                    // vrControls.onRightButtonPressed = function(evt) {
+                    //     const trans = vrControls.groupXR.position.clone();
+                    //     let offsetRotation;
+
+                    //     //  Only apply rotation on 1 axis at the time
+                    //     offsetRotation = vrControls.getRotationYaw(0.5);
+                    //     vrControls.applyTransformationToXR(trans, offsetRotation); // Yaw rotation only
+                    // }
+                }
+
+                function startDemo(){
+                    vrControls.onLeftAxisChanged = function(){};
+                    vrControls.onRightAxisChanged = function(){};
+                    vrControls.onLeftButtonPressed = function(){};
+
+                    // const text = createText('Demonstration session', 0.03);
+                    // text.position.set(0.2, 0.2, 0);
+                    // view.webXR.vrControls.controllers[1].add(text);
+
+                    console.log('Begin demo'); 
                 }
 
                 vrControls.onRightButtonPressed = function(evt) { 

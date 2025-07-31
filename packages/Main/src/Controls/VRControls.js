@@ -500,20 +500,20 @@ Adding a few internal states for reactivity
 
     // Left axis changed.
     onLeftAxisChanged(ctrl) {
-        // if (ctrl.userData.handedness !== 'left') {
-        //     return;
-        // }
+        if (ctrl.userData.handedness !== 'left') {
+            return;
+        }
 
-        // const trans = this.groupXR.position.clone();
-        // let offsetRotation;
+        const trans = this.groupXR.position.clone();
+        let offsetRotation;
 
-        // //  Only apply rotation on 1 axis at the time
-        // if (Math.abs(ctrl.gamepad.axes[2]) > Math.abs(ctrl.gamepad.axes[3])) {
-        //     offsetRotation = this.getRotationYaw(ctrl.gamepad.axes[2]);
-        //     this.applyTransformationToXR(trans, offsetRotation); // Yaw rotation only
-        // } else {
-        //     offsetRotation = this.getRotationPitch(ctrl.gamepad.axes[3]);
-        // }
+        //  Only apply rotation on 1 axis at the time
+        if (Math.abs(ctrl.gamepad.axes[2]) > Math.abs(ctrl.gamepad.axes[3])) {
+            offsetRotation = this.getRotationYaw(ctrl.gamepad.axes[2]);
+            this.applyTransformationToXR(trans, offsetRotation); // Yaw rotation only
+        } else {
+            offsetRotation = this.getRotationPitch(ctrl.gamepad.axes[3]);
+        }
     }
 
     // Right axis stops.
