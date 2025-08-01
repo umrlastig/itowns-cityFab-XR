@@ -67,7 +67,7 @@
             let geo = DEFAULT_POSITION.mlv;
             try {
                 const pos = await getCurrentPosition();
-                // const pos = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json()); //TCP server connection
+                // const pos = await fetch('https://tcp-server-gnss.onrender.com/geopos').then(r => r.json()); //TCP server connection
                 geo = { longitude: pos.coords.longitude, latitude: pos.coords.latitude };
             } catch (e) {
                 console.warn("Geolocation error, using default position.", e);
@@ -346,11 +346,69 @@
                     vrControls.onRightAxisChanged = function(){};
                     vrControls.onLeftButtonPressed = function(){};
 
-                    // const text = createText('Demonstration session', 0.03);
-                    // text.position.set(0.2, 0.2, 0);
-                    // view.webXR.vrControls.controllers[1].add(text);
+                    const text = createText('Demonstration session', 0.03);
+                    text.position.set(0.2, 0.2, 0);
+                    view.webXR.vrControls.controllers[1].add(text);
 
                     console.log('Begin demo'); 
+
+                    vrControls.onRightButtonPressed = function(){
+                        // Building picking / info
+                        function displayProperties(properties) {
+                            const htmlInfo = document.getElementById('info');
+                            htmlInfo.innerHTML = '';
+                            Object.entries(properties)
+                                .filter(([k, v]) => v && !k.startsWith('_') && k !== 'geometry_name')
+                                .forEach(([k, v]) => {
+                                    htmlInfo.innerHTML += `<li><b>${k}:</b> ${v}</li>`;
+                                });
+                        }
+
+                        let line;
+                        const controllerRight = this.getController(0);
+                        controllerRight.children.forEach(element => {
+                            if (element.isLine){
+                                line = element;
+                            }
+                        });
+
+                        const raycaster = new THREE.Raycaster();
+                        const pos = new THREE.Vector3();
+                        const dir = new THREE.Vector3();
+
+                        if (line){
+                            line.getWorldPosition(pos);
+                            line.getWorldDirection(dir);
+
+                            raycaster.ray.origin = pos;
+                            raycaster.ray.direction = dir.multiplyScalar(-1);
+
+                            // calculate objects intersecting the picking ray
+                            const intersects = raycaster.intersectObjects(view.scene.children);
+                            if (intersects.length > 0 && intersects[0].object.name == 'WFS Building') {
+                                const intersect = intersects[0];
+                                const batchId = intersect.object.geometry.attributes.batchId.array[intersect.face.a];
+                                const feature = intersect.object.feature;
+                                const properties = feature.geometries[batchId].properties;
+                                // displayProperties(properties);
+        
+                            }  
+
+                        } 
+
+                        // Picking function if needed (could be expanded)
+                        function buildingPicking(event) {
+                            if (!view.controls.isPaused) return;
+                            const intersects = view.pickObjectsAt(event, 3, 'WFS Building');
+                            if (intersects.length) {
+                                const intersect = intersects[0];
+                                const batchId = intersect.object.geometry.attributes.batchId.array[intersect.face.a];
+                                const feature = intersect.object.feature;
+                                const properties = feature.geometries[batchId].properties;
+                                displayProperties(properties);
+                            }
+                        }
+                    };
                 }
 
                 vrControls.onRightButtonPressed = function(evt) { 
