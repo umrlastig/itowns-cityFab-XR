@@ -259,7 +259,7 @@ jobs:
           # external_repository: umrlastig/itowns-cityFab-XR.github.io
           publish_dir: ./itowns
           destination_dir: ./itowns
-          publish_branch: master
+          # publish_branch: master
           enable_jekyll: true
 
       # Deploy to itowns-cityFab-XR.github.io Dev
@@ -274,7 +274,7 @@ jobs:
           # external_repository: umrlastig/itowns-cityFab-XR.github.io
           publish_dir: ./itowns
           destination_dir: ./itowns/dev
-          publish_branch: master
+          # publish_branch: master
           enable_jekyll: true
 
 
