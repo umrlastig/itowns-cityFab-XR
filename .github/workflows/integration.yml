@@ -221,7 +221,7 @@ jobs:
   deploy:
     name: Deploy to itowns.github.io
     if: ${{ github.ref == 'refs/heads/master' }}
-    # needs: [finish-coverage, functional-tests]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
 
