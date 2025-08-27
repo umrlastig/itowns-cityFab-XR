@@ -255,7 +255,7 @@ jobs:
         if: ${{ startsWith(github.event.head_commit.message, 'release v' ) }}
         uses: peaceiris/actions-gh-pages@v3
         with:
-          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           external_repository: umrlastig/itowns-cityFab-XR.github.io
           publish_dir: ./itowns
           destination_dir: ./itowns
@@ -270,7 +270,7 @@ jobs:
         if: ${{ !startsWith(github.event.head_commit.message, 'release v' ) }}
         uses: peaceiris/actions-gh-pages@v3
         with:
-          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           external_repository: umrlastig/itowns-cityFab-XR.github.io
           publish_dir: ./itowns
           destination_dir: ./itowns/dev
