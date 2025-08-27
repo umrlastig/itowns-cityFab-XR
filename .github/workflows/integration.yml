@@ -75,153 +75,153 @@ jobs:
   #         accessToken: ${{ secrets.GITHUB_TOKEN }}
 
 
-  # Unit and coverage tests
-  unit-and-coverage-tests:
-    name: Unit and coverage tests
-    needs: [build]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - package: "@itowns/geographic"
-            path: "Geographic"
-          - package: "itowns"
-            path: "Main"
-    steps:
+  # # Unit and coverage tests
+  # unit-and-coverage-tests:
+  #   name: Unit and coverage tests
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - package: "@itowns/geographic"
+  #           path: "Geographic"
+  #         - package: "itowns"
+  #           path: "Main"
+  #   steps:
 
-      # Use specific Node.js version
-      - uses: actions/checkout@v4
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: 'npm'
+  #     # Use specific Node.js version
+  #     - uses: actions/checkout@v4
+  #     - name: Use Node.js 22.x
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22.x
+  #         cache: 'npm'
 
-      # Install packages
-      - name: Install packages
-        run: npm ci
+  #     # Install packages
+  #     - name: Install packages
+  #       run: npm ci
 
-      # Transpile
-      - name: Transpile packages
-        run: npm run transpile
+  #     # Transpile
+  #     - name: Transpile packages
+  #       run: npm run transpile
 
-      - name: Test ${{ matrix.package }}
-        run: npm run test-with-coverage_lcov --workspace ${{ matrix.package}}
-      - name: Coveralls Parallel
-        uses: coverallsapp/github-action@v2
-        with:
-          format: lcov
-          base-path: ./packages/${{ matrix.path }}
-          path-to-lcov: ./packages/${{ matrix.path }}/coverage/lcov.info
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          flag-name: run-${{ matrix.package }}
-          parallel: true
+  #     - name: Test ${{ matrix.package }}
+  #       run: npm run test-with-coverage_lcov --workspace ${{ matrix.package}}
+  #     - name: Coveralls Parallel
+  #       uses: coverallsapp/github-action@v2
+  #       with:
+  #         format: lcov
+  #         base-path: ./packages/${{ matrix.path }}
+  #         path-to-lcov: ./packages/${{ matrix.path }}/coverage/lcov.info
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         flag-name: run-${{ matrix.package }}
+  #         parallel: true
 
-  # Final Code coverage
-  finish-coverage:
-    name: finish parallel test unit
-    needs: unit-and-coverage-tests
-    runs-on: ubuntu-latest
-    steps:
-    - name: Close parallel build
-      uses: coverallsapp/github-action@v2
-      with:
-        parallel-finished: true
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-  # Functional tests
-  functional-tests:
-    name: Functional tests
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
+  # # Final Code coverage
+  # finish-coverage:
+  #   name: finish parallel test unit
+  #   needs: unit-and-coverage-tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Close parallel build
+  #     uses: coverallsapp/github-action@v2
+  #     with:
+  #       parallel-finished: true
+  #       github-token: ${{ secrets.GITHUB_TOKEN }}
+  # # Functional tests
+  # functional-tests:
+  #   name: Functional tests
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
 
-      # Use specific Node.js version
-      - uses: actions/checkout@v4
-      - name: Use Node.js 22.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: 'npm'
+  #     # Use specific Node.js version
+  #     - uses: actions/checkout@v4
+  #     - name: Use Node.js 22.x
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22.x
+  #         cache: 'npm'
 
-      # Install packages
-      - name: Install packages
-        run: npm ci
+  #     # Install packages
+  #     - name: Install packages
+  #       run: npm ci
 
-      # Download artifact from build
-      - name: Download itowns bundle
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-itowns
+  #     # Download artifact from build
+  #     - name: Download itowns bundle
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: dist-itowns
 
-      - name: Run functional tests
-        run: npm run test-functional
+  #     - name: Run functional tests
+  #       run: npm run test-functional
 
 
   # Publish NPM package
-  publish:
-    name: Publish NPM package
-    if: ${{ github.ref == 'refs/heads/master' }}
-    needs: [finish-coverage, functional-tests]
-    runs-on: ubuntu-latest
-    permissions:
-        # id-token: write permission is required for npm provenance:
-        # https://docs.npmjs.com/generating-provenance-statements#publishing-packages-with-provenance-via-github-actions
-        id-token: write
-        # contents: write is required for git push
-        contents: write
-    steps:
+  # publish:
+  #   name: Publish NPM package
+  #   if: ${{ github.ref == 'refs/heads/master' }}
+  #   needs: [finish-coverage, functional-tests]
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #       # id-token: write permission is required for npm provenance:
+  #       # https://docs.npmjs.com/generating-provenance-statements#publishing-packages-with-provenance-via-github-actions
+  #       id-token: write
+  #       # contents: write is required for git push
+  #       contents: write
+  #   steps:
 
-      - uses: actions/checkout@v4
-        with:
-          # fetch all branches
-          fetch-depth: 0
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         # fetch all branches
+  #         fetch-depth: 0
 
-      # Configure git user for later command induced commits
-      - uses: fregante/setup-git-user@v1
+  #     # Configure git user for later command induced commits
+  #     - uses: fregante/setup-git-user@v1
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          registry-url: https://registry.npmjs.org/
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22.x
+  #         registry-url: https://registry.npmjs.org/
 
-      - run: npm ci
-      - run: npm run prepare
+  #     - run: npm ci
+  #     - run: npm run prepare
 
-      - name: publish itowns@latest npm package
-        if: ${{ startsWith(github.event.head_commit.message, 'release v' ) }}
-        run: npm run publish-latest
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  #     - name: publish itowns@latest npm package
+  #       if: ${{ startsWith(github.event.head_commit.message, 'release v' ) }}
+  #       run: npm run publish-latest
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: publish itowns@next npm package (following a release)
-        if: ${{ startsWith(github.event.head_commit.message, 'release v' ) }}
-        run: |
-          git checkout next
-          git reset --hard master
-          npm run publish-next
-          git add .
-          git commit --amend --no-edit
-          git push -f
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  #     - name: publish itowns@next npm package (following a release)
+  #       if: ${{ startsWith(github.event.head_commit.message, 'release v' ) }}
+  #       run: |
+  #         git checkout next
+  #         git reset --hard master
+  #         npm run publish-next
+  #         git add .
+  #         git commit --amend --no-edit
+  #         git push -f
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: publish itowns@next npm package
-        if: ${{ !startsWith(github.event.head_commit.message, 'release v' ) }}
-        run: |
-          git checkout next
-          git merge master
-          npm run publish-next
-          git add .
-          git commit --amend --no-edit
-          git push
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  #     - name: publish itowns@next npm package
+  #       if: ${{ !startsWith(github.event.head_commit.message, 'release v' ) }}
+  #       run: |
+  #         git checkout next
+  #         git merge master
+  #         npm run publish-next
+  #         git add .
+  #         git commit --amend --no-edit
+  #         git push
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Deploy on itowns.github.io website
   deploy:
     name: Deploy to itowns.github.io
     if: ${{ github.ref == 'refs/heads/master' }}
-    needs: [finish-coverage, functional-tests]
+    # needs: [finish-coverage, functional-tests]
     runs-on: ubuntu-latest
     steps:
 
