@@ -91,7 +91,7 @@
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
 
             // Add XR Button
-            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['local'] }));
+            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['unbounded'] }));
 
             // Add imagery and elevation layers
             const addElevationFromConfig = config => {
@@ -387,7 +387,7 @@
                         let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
                         let rollRad = THREE.MathUtils.degToRad(rotation.roll);
                         let headingRad = THREE.MathUtils.degToRad(rotation.heading);
-                        
+
                         const groupXR = view.webXR.vrControls.groupXR;
                         groupXR.rotation.set(pitchRad, headingRad, rollRad);
                         groupXR.updateMatrixWorld();
