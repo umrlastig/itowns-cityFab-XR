@@ -30,6 +30,8 @@
         import { XRButton } from 'three/addons/webxr/XRButton.js';
         import { createText } from 'three/addons/webxr/Text2D.js';
 
+        let rotationGlobal;
+
         // ---- Async Utility Functions ----
         async function getCurrentPosition() {
             if (!navigator.geolocation) {
@@ -65,14 +67,19 @@
         async function main() {
             // Get user's location (fallback to default)
             let geo = DEFAULT_POSITION.mlv;
+            let rotation;
             try {
                 // const pos = await getCurrentPosition();
                 const pos = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json()); //TCP server connection
                 geo = { longitude: pos.longitude, latitude: pos.latitude };
+                rotation = { pitch: pos.pitch, heading: pos.heading, roll: pos.roll };
+                rotationGlobal = rotation;
             } catch (e) {
                 console.warn("Geolocation error, using default position.", e);
             }
 
+            if (geo.longitude == undefined)
+               geo = DEFAULT_POSITION.mlv
             // Initialize iTowns view
             const placement = {
                 coord: new itowns.Coordinates('EPSG:4326', geo.longitude, geo.latitude),
@@ -84,7 +91,7 @@
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
 
             // Add XR Button
-            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['unbounded'] }));
+            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['local'] }));
 
             // Add imagery and elevation layers
             const addElevationFromConfig = config => {
@@ -182,6 +189,16 @@
                 }
             }
 
+            //setup rotation
+            const camera = view.camera.camera3D;
+            let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
+            let rollRad = THREE.MathUtils.degToRad(rotation. roll);
+            let headingRad = THREE.MathUtils.degToRad(rotation.heading);
+
+            camera.rotation.set(pitchRad, headingRad, rollRad);
+            camera.updateMatrixWorld();
+
+
             // XR Session: Add buttons and controllers
             setupXRCalibrationUI(view);
 
@@ -198,9 +215,10 @@
             const xr = view.renderer.xr;
             xr.addEventListener('sessionstart', function () {
                 const vrControls = view.webXR.vrControls;
+                let called = false;
 
                 // Prepare mesh creation once
-                const sunButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00, 'sunButton', 'Sun');
+                const gnssRotationButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00, 'gnssRotationButton', 'Gnss');
                 const buildingsButton = makeButtonMesh(0.3, 0.1, 0.01, 0x008000, 'buildingsButton', 'Buildings');
                 const titleText = createText('Calibration mode', 0.06);
 
@@ -238,12 +256,12 @@
                             const intersects = raycaster.intersectObjects(view.scene.children);
                             if (intersects.length > 0 && intersects[0].object.name == 'buildingsButton') {
                                 buildingsButton.material = new THREE.MeshBasicMaterial({ color: 0x025C02 });
-                            }  else if (intersects.length > 0 && intersects[0].object.name == 'sunButton') {
-                                sunButton.material = new THREE.MeshBasicMaterial({ color: 0xC9C904 });
+                            }  else if (intersects.length > 0 && intersects[0].object.name == 'gnssRotationButton') {
+                                gnssRotationButton.material = new THREE.MeshBasicMaterial({ color: 0xC9C904 });
                             }
                             else{
                                 buildingsButton.material = new THREE.MeshBasicMaterial({ color: 0x008000 });
-                                sunButton.material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                                gnssRotationButton.material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
                             }
                             view.notifyChange();
                         } 
@@ -259,10 +277,10 @@
                     } else {
                         indexLeft = 1; indexRight = 0;
                     }
-                    sunButton.position.set(-0.15, 0.2, 0);
+                    gnssRotationButton.position.set(-0.15, 0.2, 0);
                     buildingsButton.position.set(0.15, 0.2, 0);
                     titleText.position.set(0, 0.3, 0);
-                    [sunButton, buildingsButton, titleText].forEach(obj => {
+                    [gnssRotationButton, buildingsButton, titleText].forEach(obj => {
                         view.scene.add(obj);
                         this.getController(indexLeft).add(obj);
                     });
@@ -272,7 +290,7 @@
                 function initBuildingsMode() {
                     vrControls.onRightButtonPressed = function() {};// apply only once initBuildingMode      
                     console.log('Buildings mode');             
-                    sunButton.visible = false;
+                    gnssRotationButton.visible = false;
                     buildingsButton.visible = false;
                     titleText.visible = false;
                     const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03);
@@ -299,7 +317,7 @@
                     vrControls.onRightButtonPressed = function() {}; //apply only once initSunMode
                     console.log('Buildings mode');             
 
-                    sunButton.visible = false;
+                    gnssRotationButton.visible = false;
                     buildingsButton.visible = false;
                     titleText.visible = false;
 
@@ -357,6 +375,28 @@
                     //     vrControls.applyTransformationToXR(trans, offsetRotation); // Yaw rotation only
                     // }
                 }
+
+                
+                async function rotateWithGNSS() {
+                    if (called) return;
+                    called = true;
+                    try {
+                        const pos = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json());
+                        const rotation = { pitch: pos.pitch, heading: pos.heading, roll: pos.roll };
+                        const camera = view.camera.camera3D;
+                        let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
+                        let rollRad = THREE.MathUtils.degToRad(rotation.roll);
+                        let headingRad = THREE.MathUtils.degToRad(rotation.heading);
+                        
+                        const groupXR = view.webXR.vrControls.groupXR;
+                        groupXR.rotation.set(pitchRad, headingRad, rollRad);
+                        groupXR.updateMatrixWorld();
+                        console.log(rotation);
+                    } catch (e) {
+                        console.warn("Geolocation error, using default position.", e);
+                    }
+                }
+
 
                 function startDemo(){
                     vrControls.onLeftAxisChanged = function(){};
@@ -429,6 +469,8 @@
                 }
 
                 vrControls.onRightButtonPressed = function(evt) { 
+                    called = false;
+
                     // select button
                     const controllerRight = this.controllers.filter( (controller) => controller.name == 'right')[0];
                     
@@ -451,8 +493,10 @@
                         if (intersects.length > 0 && intersects[0].object.name == 'buildingsButton') {
                             initBuildingsMode(); // buildings mode calibration
                             view.notifyChange();
-                        } else if (intersects.length > 0 && intersects[0].object.name == 'sunButton') {
-                            initSunMode(); // sun mode calibration
+                        } else if (intersects.length > 0 && intersects[0].object.name == 'gnssRotationButton') {
+                            // initSunMode(); // sun mode calibration
+                            // called = false;
+                            rotateWithGNSS();
                             view.notifyChange();
                         }
                     }
