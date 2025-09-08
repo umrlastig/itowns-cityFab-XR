@@ -66,9 +66,9 @@
             // Get user's location (fallback to default)
             let geo = DEFAULT_POSITION.mlv;
             try {
-                const pos = await getCurrentPosition();
-                // const pos = await fetch('https://tcp-server-gnss.onrender.com/geopos').then(r => r.json()); //TCP server connection
-                geo = { longitude: pos.coords.longitude, latitude: pos.coords.latitude };
+                // const pos = await getCurrentPosition();
+                const pos = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json()); //TCP server connection
+                geo = { longitude: pos.longitude, latitude: pos.latitude };
             } catch (e) {
                 console.warn("Geolocation error, using default position.", e);
             }
@@ -84,7 +84,7 @@
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
 
             // Add XR Button
-            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['local'] }));
+            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['unbounded'] }));
 
             // Add imagery and elevation layers
             const addElevationFromConfig = config => {
@@ -204,10 +204,17 @@
                 const buildingsButton = makeButtonMesh(0.3, 0.1, 0.01, 0x008000, 'buildingsButton', 'Buildings');
                 const titleText = createText('Calibration mode', 0.06);
 
+
                 // Controller 0: highlight buttons based on pointing
                 this.getController(0).addEventListener('connected', () => {
 
-                    const controllerRight = this.getController(0);
+                    let indexRight, indexLeft;
+                    if (this.getController(0).name == 'left'){
+                        indexLeft = 0; indexRight = 1;
+                    } else {
+                        indexLeft = 1; indexRight = 0;
+                    }
+                    const controllerRight = this.getController(indexRight);
                     function highlightButton() { 
                         let line;
                         controllerRight.children.forEach(element => {
@@ -241,17 +248,23 @@
                             view.notifyChange();
                         } 
                      }
-                    view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.BEFORE_RENDER, highlightButton);
+                    // view.addFrameRequester(itowns.MAIN_LOOP_EVENTS.BEFORE_RENDER, highlightButton);
                 });
 
                 // Controller 1: add buttons and handle press
                 this.getController(1).addEventListener('connected', () => {
+                    let indexRight, indexLeft;
+                    if (this.getController(0).name == 'left'){
+                        indexLeft = 0; indexRight = 1;
+                    } else {
+                        indexLeft = 1; indexRight = 0;
+                    }
                     sunButton.position.set(-0.15, 0.2, 0);
                     buildingsButton.position.set(0.15, 0.2, 0);
                     titleText.position.set(0, 0.3, 0);
                     [sunButton, buildingsButton, titleText].forEach(obj => {
                         view.scene.add(obj);
-                        this.getController(1).add(obj);
+                        this.getController(indexLeft).add(obj);
                     });
                 });
 
@@ -264,7 +277,9 @@
                     titleText.visible = false;
                     const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03);
                     text.position.set(0.2, 0.2, 0);
-                    view.webXR.vrControls.controllers[1].add(text); 
+
+                    const controllerLeft = vrControls.controllers.filter( (controller) => controller.name == 'left')[0];
+                    controllerLeft.add(text); 
 
                     // End buildings calibration
                     vrControls.onLeftButtonPressed = function(evt) {
@@ -290,13 +305,15 @@
 
                     const text = createText('Sun mode : overlay the target on the sun to calibrate the scene', 0.03);
                     text.position.set(0.2, 0.2, 0);
-                    view.webXR.vrControls.controllers[1].add(text);
+
+                    const controllerLeft = vrControls.controllers.filter( (controller) => controller.name == 'left')[0];
+                    controllerLeft.add(text); 
 
                     const geometry = new THREE.SphereGeometry(15, 32, 16); 
                     const material = new THREE.MeshBasicMaterial({color: 0xffff00}); 
                     const sphere = new THREE.Mesh(geometry, material);
                     sphere.scale.set(0.01, 0.01, 0.01);
-                    sphere.position.set(0, 0, -3);
+                    sphere.position.set(0, 0, -5);
                     view.scene.add(sphere);
                     view.webXR.vrControls.groupXR.children[0].add(sphere); // follow camera
 
@@ -484,6 +501,7 @@
             if (label) {
                 const textObj = createText(label, 0.06);
                 textObj.position.set(0, 0, 0.0051);
+                textObj.name = name;
                 mesh.add(textObj);
             }
             return mesh;
