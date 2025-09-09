@@ -70,7 +70,7 @@
             let rotation;
             try {
                 // const pos = await getCurrentPosition();
-                const pos = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json()); //TCP server connection
+                const pos = await fetch('https://localhost:8081/geopos').then(r => r.json()); //TCP server connection
                 geo = { longitude: pos.longitude, latitude: pos.latitude };
                 rotation = { pitch: pos.pitch, heading: pos.heading, roll: pos.roll };
                 rotationGlobal = rotation;
