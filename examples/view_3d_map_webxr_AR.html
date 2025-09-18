@@ -29,7 +29,7 @@
         import * as THREE from 'three';
         import { XRButton } from 'three/addons/webxr/XRButton.js';
         import { createText } from 'three/addons/webxr/Text2D.js';
-
+        
         let rotationGlobal;
 
         // ---- Async Utility Functions ----
@@ -66,20 +66,25 @@
         // ---- Main Logic ----
         async function main() {
             // Get user's location (fallback to default)
+            let TCP_status = "Disconnected";
             let geo = DEFAULT_POSITION.mlv;
-            let rotation;
+            let rotation = { pitch: 0, heading: 0, roll: 0 };
             try {
                 // const pos = await getCurrentPosition();
-                const pos = await fetch('https://localhost:8081/geopos').then(r => r.json()); //TCP server connection
+                const pos = await fetch('https://localhost:8081/geopos/').then(r => r.json()); //TCP server connection
                 geo = { longitude: pos.longitude, latitude: pos.latitude };
-                rotation = { pitch: pos.pitch, heading: pos.heading, roll: pos.roll };
+                rotation = { pitch: pos.pitch, heading: pos.heading};
                 rotationGlobal = rotation;
+                TCP_status = "Connected";
             } catch (e) {
                 console.warn("Geolocation error, using default position.", e);
             }
 
-            if (geo.longitude == undefined)
-               geo = DEFAULT_POSITION.mlv
+            if (geo.longitude == undefined) {
+               geo = DEFAULT_POSITION.mlv;
+                TCP_status = "Disconnected";
+            }
+
             // Initialize iTowns view
             const placement = {
                 coord: new itowns.Coordinates('EPSG:4326', geo.longitude, geo.latitude),
@@ -90,8 +95,31 @@
             const viewerDiv = document.getElementById('viewerDiv');
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
 
+
             // Add XR Button
-            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['unbounded'] }));
+            view.renderer.xr.enabled = true;
+            viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['local'] }));
+
+            // Post-processing setup
+			// const size = new THREE.Vector2();
+            // let composer = new EffectComposer( view.renderer );
+
+            // composer.addPass( new RenderPass( view.scene, view.camera.camera3D ) );
+            // composer.addPass( new UnrealBloomPass( size, 0.5, 1, 0 ) );
+			// composer.addPass( new OutputPass( THREE.ACESFilmicToneMapping ) );
+
+            
+            // window.addEventListener( 'resize', function () {
+            //     view.renderer.setSize( window.innerWidth, window.innerHeight );
+			// 	view.renderer.getSize( size );
+			// 	composer.setSize( size.width, size.height );
+			// 	view.camera.camera3D.aspect = window.innerWidth / window.innerHeight;
+			// 	view.camera.camera3D.updateProjectionMatrix();
+            // } );
+            
+            // view.renderer.setAnimationLoop( function () {
+            //     composer.render();
+            // } );
 
             // Add imagery and elevation layers
             const addElevationFromConfig = config => {
@@ -140,8 +168,8 @@
                 zoom: { min: 14 },
                 style: { fill: { color: new THREE.Color(0x000000), base_altitude: altitudeBuildings, extrusion_height: extrudeBuildings } }
             });
-            wfsWire.wireframe = true;
-            view.addLayer(wfsWire);
+            // wfsWire.wireframe = true;
+            // view.addLayer(wfsWire);
 
             const wfsFilled = new itowns.FeatureGeometryLayer('WFS Building', {
                 batchId: (_, id) => id,
@@ -162,7 +190,11 @@
             // UI information
             function updateGNSSStatus() {
                 document.getElementById('info').innerHTML =
-                    `<li><b>TCP server status:</b> ${geo.longitude}</li>`;
+                    `<li><b>TCP server status:</b> ${TCP_status}</li>
+                    <li><b>Long:</b> ${geo.longitude}</li>
+                    <li><b>Lat:</b> ${geo.latitude}</li>
+                    <li><b>Heading:</b> ${rotation.heading}</li>
+                    <li><b>Pitch:</b> ${rotation.pitch}</li>`;
             }
             updateGNSSStatus();
 
@@ -192,10 +224,10 @@
             //setup rotation
             const camera = view.camera.camera3D;
             let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
-            let rollRad = THREE.MathUtils.degToRad(rotation. roll);
+            // let rollRad = THREE.MathUtils.degToRad(rotation. roll);
             let headingRad = THREE.MathUtils.degToRad(rotation.heading);
 
-            camera.rotation.set(pitchRad, headingRad, rollRad);
+            camera.rotation.y = headingRad;
             camera.updateMatrixWorld();
 
 
@@ -222,6 +254,27 @@
                 const buildingsButton = makeButtonMesh(0.3, 0.1, 0.01, 0x008000, 'buildingsButton', 'Buildings');
                 const titleText = createText('Calibration mode', 0.06);
 
+
+                //prepare guizmos
+                const groupGuizmo = new THREE.Group();
+
+                const geometryLineX = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(5, 0, 0)]);
+                const geometryLineY = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 5, 0)]);
+                const geometryLineZ = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5)]);
+
+                const materialLine = new THREE.LineBasicMaterial({ color:  0xFF0000 });//red
+                const materialLineY = new THREE.LineBasicMaterial({ color: 0x00FF00 });//green
+                const materialLineZ = new THREE.LineBasicMaterial({ color: 0x0000FF });//blue
+                const lineX = new THREE.Line(geometryLineX, materialLine);
+                const lineY = new THREE.Line(geometryLineY, materialLineY);
+                const lineZ = new THREE.Line(geometryLineZ, materialLineZ);
+
+                groupGuizmo.add(lineX);
+                groupGuizmo.add(lineY);
+                groupGuizmo.add(lineZ);
+                view.scene.add(groupGuizmo);
+                const guizmosGnss = groupGuizmo.clone();
+                view.scene.add(guizmosGnss);
 
                 // Controller 0: highlight buttons based on pointing
                 this.getController(0).addEventListener('connected', () => {
@@ -284,6 +337,12 @@
                         view.scene.add(obj);
                         this.getController(indexLeft).add(obj);
                     });
+
+                    groupGuizmo.position.set(vrControls.groupXR.clone().position.x, vrControls.groupXR.clone().position.y, vrControls.groupXR.clone().position.z);
+                    groupGuizmo.updateMatrixWorld();
+                    guizmosGnss.position.set(vrControls.groupXR.clone().position.x, vrControls.groupXR.clone().position.y + 5.5, vrControls.groupXR.clone().position.z);
+                    guizmosGnss.updateMatrixWorld();
+                    updateGuizmoPosition();
                 });
 
                 // Handle calibration modes
@@ -376,22 +435,98 @@
                     // }
                 }
 
-                
+                function updateGuizmoPosition() {
+                        let headingRad = THREE.MathUtils.degToRad(rotationGlobal.heading);
+                        let pitchRad = THREE.MathUtils.degToRad(0);
+
+                        console.log('Update guizmo rotation', rotationGlobal);
+
+                        // let headingRad = THREE.MathUtils.degToRad(rotationGlobal.heading);
+                        const groupXR = view.webXR.vrControls.groupXR;
+                        const vrControls = view.webXR.vrControls;
+
+                        // --- Heading rotation ---
+                        const upAxis = groupXR.position.clone().normalize();
+                        // Create a quaternion representing a heading rotation about the up axis.
+                        const headingQuaternion = new THREE.Quaternion()
+                            .setFromAxisAngle(upAxis, headingRad)
+                            .normalize();
+                        // Apply the heading rotation.
+                        guizmosGnss.quaternion.copy(headingQuaternion);
+                        // groupXR.quaternion.premultiply(headingQuaternion);
+                        groupXR.updateMatrixWorld();
+
+                        // --- Pitch rotation ---
+                        const baseOrientation = groupXR.quaternion.clone().normalize();
+
+                        // (Assuming (1, 0, 0) is the right direction in local space.)
+                        const rightAxis = new THREE.Vector3(1, 0, 0)
+                            .applyQuaternion(baseOrientation)
+                            .normalize();
+
+                        // Create a quaternion representing a pitch rotation about the right axis.
+                        const pitchQuaternion = new THREE.Quaternion()
+                            .setFromAxisAngle(rightAxis, pitchRad)
+                            .normalize();
+
+                        guizmosGnss.quaternion.premultiply(pitchQuaternion);
+                        groupXR.quaternion.premultiply(pitchQuaternion);
+                        groupXR.updateMatrixWorld();
+
+                        guizmosGnss.updateMatrixWorld();
+                        view.notifyChange();
+                }
+
                 async function rotateWithGNSS() {
                     if (called) return;
                     called = true;
                     try {
-                        const pos = await fetch('https://192.168.1.34:8081/geopos').then(r => r.json());
-                        const rotation = { pitch: pos.pitch, heading: pos.heading, roll: pos.roll };
-                        const camera = view.camera.camera3D;
-                        let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
-                        let rollRad = THREE.MathUtils.degToRad(rotation.roll);
-                        let headingRad = THREE.MathUtils.degToRad(rotation.heading);
+                        const pos = await fetch('https://localhost:8081/geopos/').then(r => r.json());
+                        let headingRad = THREE.MathUtils.degToRad(pos.heading);
+                        let pitchRad = THREE.MathUtils.degToRad(pos.pitch);
 
+                        console.log('Update guizmo rotation', pos.heading);
+
+                        // let headingRad = THREE.MathUtils.degToRad(rotationGlobal.heading);
                         const groupXR = view.webXR.vrControls.groupXR;
-                        groupXR.rotation.set(pitchRad, headingRad, rollRad);
+                        const vrControls = view.webXR.vrControls;
+
+                        // --- Heading rotation ---
+                        // const upAxis = groupXR.position.clone().normalize();
+                        const upAxis = new THREE.Vector3(0, -1, 0);
+                        // Create a quaternion representing a heading rotation about the up axis.
+                        const headingQuaternion = new THREE.Quaternion()
+                            .setFromAxisAngle(upAxis, headingRad)
+                            .normalize();
+                        // Apply the heading rotation.
+                        groupXR.quaternion.copy(headingQuaternion);
+                        // groupXR.quaternion.premultiply(headingQuaternion);
+
+                        // groupXR.quaternion.setFromAxisAngle(upAxis, headingRad);
+
+
+                        // --- Pitch rotation ---
+                        const baseOrientation = groupXR.quaternion.clone().normalize();
+
+                        // (Assuming (1, 0, 0) is the right direction in local space.)
+                        const rightAxis = new THREE.Vector3(0, 0, 1)
+                            .applyQuaternion(baseOrientation)
+                            .normalize();
+
+                        // Create a quaternion representing a pitch rotation about the right axis.
+                        const pitchQuaternion = new THREE.Quaternion()
+                            .setFromAxisAngle(rightAxis, pitchRad)
+                            .normalize();
+
+                        groupXR.quaternion.premultiply(headingQuaternion);
+                        groupXR.quaternion.premultiply(pitchQuaternion);
+                        // groupXR.quaternion.setFromAxisAngle(rightAxis, pitchRad);
+
                         groupXR.updateMatrixWorld();
-                        console.log(rotation);
+
+                        guizmosGnss.updateMatrixWorld();
+                        view.notifyChange();
+                       
                     } catch (e) {
                         console.warn("Geolocation error, using default position.", e);
                     }
@@ -495,8 +630,9 @@
                             view.notifyChange();
                         } else if (intersects.length > 0 && intersects[0].object.name == 'gnssRotationButton') {
                             // initSunMode(); // sun mode calibration
-                            // called = false;
+                            called = false;
                             rotateWithGNSS();
+                            // updateGuizmoPosition();
                             view.notifyChange();
                         }
                     }
