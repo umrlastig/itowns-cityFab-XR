@@ -29,7 +29,7 @@
         import * as THREE from 'three';
         import { XRButton } from 'three/addons/webxr/XRButton.js';
         import { createText } from 'three/addons/webxr/Text2D.js';
-        
+
         let rotationGlobal;
 
         // ---- Async Utility Functions ----
@@ -248,11 +248,15 @@
             xr.addEventListener('sessionstart', function () {
                 const vrControls = view.webXR.vrControls;
                 let called = false;
-
+                
                 // Prepare mesh creation once
                 const gnssRotationButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00, 'gnssRotationButton', 'Gnss');
                 const buildingsButton = makeButtonMesh(0.3, 0.1, 0.01, 0x008000, 'buildingsButton', 'Buildings');
                 const titleText = createText('Calibration mode', 0.06);
+                
+                let baseOrientation;
+                if (baseOrientation == undefined)
+                    baseOrientation = vrControls.groupXR.quaternion.clone().normalize();
 
 
                 //prepare guizmos
@@ -278,7 +282,6 @@
 
                 // Controller 0: highlight buttons based on pointing
                 this.getController(0).addEventListener('connected', () => {
-
                     let indexRight, indexLeft;
                     if (this.getController(0).name == 'left'){
                         indexLeft = 0; indexRight = 1;
@@ -341,8 +344,9 @@
                     groupGuizmo.position.set(vrControls.groupXR.clone().position.x, vrControls.groupXR.clone().position.y, vrControls.groupXR.clone().position.z);
                     groupGuizmo.updateMatrixWorld();
                     guizmosGnss.position.set(vrControls.groupXR.clone().position.x, vrControls.groupXR.clone().position.y + 5.5, vrControls.groupXR.clone().position.z);
+
+                    guizmosGnss.quaternion.copy(vrControls.groupXR.quaternion);
                     guizmosGnss.updateMatrixWorld();
-                    updateGuizmoPosition();
                 });
 
                 // Handle calibration modes
@@ -435,80 +439,43 @@
                     // }
                 }
 
-                function updateGuizmoPosition() {
-                        let headingRad = THREE.MathUtils.degToRad(rotationGlobal.heading);
-                        let pitchRad = THREE.MathUtils.degToRad(0);
-
-                        console.log('Update guizmo rotation', rotationGlobal);
-
-                        // let headingRad = THREE.MathUtils.degToRad(rotationGlobal.heading);
-                        const groupXR = view.webXR.vrControls.groupXR;
-                        const vrControls = view.webXR.vrControls;
-
-                        // --- Heading rotation ---
-                        const upAxis = groupXR.position.clone().normalize();
-                        // Create a quaternion representing a heading rotation about the up axis.
-                        const headingQuaternion = new THREE.Quaternion()
-                            .setFromAxisAngle(upAxis, headingRad)
-                            .normalize();
-                        // Apply the heading rotation.
-                        guizmosGnss.quaternion.copy(headingQuaternion);
-                        // groupXR.quaternion.premultiply(headingQuaternion);
-                        groupXR.updateMatrixWorld();
-
-                        // --- Pitch rotation ---
-                        const baseOrientation = groupXR.quaternion.clone().normalize();
-
-                        // (Assuming (1, 0, 0) is the right direction in local space.)
-                        const rightAxis = new THREE.Vector3(1, 0, 0)
-                            .applyQuaternion(baseOrientation)
-                            .normalize();
-
-                        // Create a quaternion representing a pitch rotation about the right axis.
-                        const pitchQuaternion = new THREE.Quaternion()
-                            .setFromAxisAngle(rightAxis, pitchRad)
-                            .normalize();
-
-                        guizmosGnss.quaternion.premultiply(pitchQuaternion);
-                        groupXR.quaternion.premultiply(pitchQuaternion);
-                        groupXR.updateMatrixWorld();
-
-                        guizmosGnss.updateMatrixWorld();
-                        view.notifyChange();
-                }
-
                 async function rotateWithGNSS() {
-                    if (called) return;
-                    called = true;
                     try {
                         const pos = await fetch('https://localhost:8081/geopos/').then(r => r.json());
-                        let headingRad = THREE.MathUtils.degToRad(pos.heading);
+                        if (pos.longitude == undefined) {
+                            throw new Error("No valid GNSS position received");
+                        }
+                        let headingRad = THREE.MathUtils.degToRad((pos.heading + 270) % 360); // +90 to compensate for helmet rotation
                         let pitchRad = THREE.MathUtils.degToRad(pos.pitch);
 
                         console.log('Update guizmo rotation', pos.heading);
+                        console.log(baseOrientation);
 
                         // let headingRad = THREE.MathUtils.degToRad(rotationGlobal.heading);
                         const groupXR = view.webXR.vrControls.groupXR;
                         const vrControls = view.webXR.vrControls;
 
+                        
+
                         // --- Heading rotation ---
-                        // const upAxis = groupXR.position.clone().normalize();
-                        const upAxis = new THREE.Vector3(0, -1, 0);
+                        const upAxis = groupXR.position.clone().normalize().multiplyScalar(-1); // Assuming the up direction is -position vector
                         // Create a quaternion representing a heading rotation about the up axis.
                         const headingQuaternion = new THREE.Quaternion()
                             .setFromAxisAngle(upAxis, headingRad)
                             .normalize();
-                        // Apply the heading rotation.
-                        groupXR.quaternion.copy(headingQuaternion);
-                        // groupXR.quaternion.premultiply(headingQuaternion);
+                    
 
-                        // groupXR.quaternion.setFromAxisAngle(upAxis, headingRad);
+                        groupGuizmo.quaternion.copy(baseOrientation);
+                        const buffer = baseOrientation.clone().premultiply(headingQuaternion);
+                        guizmosGnss.quaternion.copy(buffer);
+                        groupXR.quaternion.copy(guizmosGnss.quaternion.clone());
 
+                        guizmosGnss.updateMatrixWorld();
+                        groupGuizmo.updateMatrixWorld();
 
                         // --- Pitch rotation ---
-                        const baseOrientation = groupXR.quaternion.clone().normalize();
 
-                        // (Assuming (1, 0, 0) is the right direction in local space.)
+                        // (Assuming (0, 0, 1) is the right direction in local space.)
                         const rightAxis = new THREE.Vector3(0, 0, 1)
                             .applyQuaternion(baseOrientation)
                             .normalize();
@@ -518,8 +485,8 @@
                             .setFromAxisAngle(rightAxis, pitchRad)
                             .normalize();
 
-                        groupXR.quaternion.premultiply(headingQuaternion);
-                        groupXR.quaternion.premultiply(pitchQuaternion);
+                        // groupXR.quaternion.premultiply(headingQuaternion);
+                        // groupXR.quaternion.premultiply(pitchQuaternion);
                         // groupXR.quaternion.setFromAxisAngle(rightAxis, pitchRad);
 
                         groupXR.updateMatrixWorld();
@@ -603,8 +570,7 @@
                     };
                 }
 
-                vrControls.onRightButtonPressed = function(evt) { 
-                    called = false;
+                vrControls.onRightButtonReleased = function(evt) { 
 
                     // select button
                     const controllerRight = this.controllers.filter( (controller) => controller.name == 'right')[0];
@@ -630,10 +596,8 @@
                             view.notifyChange();
                         } else if (intersects.length > 0 && intersects[0].object.name == 'gnssRotationButton') {
                             // initSunMode(); // sun mode calibration
-                            called = false;
+                            console.log('GNSS rotation mode');
                             rotateWithGNSS();
-                            // updateGuizmoPosition();
-                            view.notifyChange();
                         }
                     }
                  };
