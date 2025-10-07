@@ -181,11 +181,12 @@
 
             //setup rotation
             const camera = view.camera.camera3D;
-            let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
-            let headingRad = THREE.MathUtils.degToRad(rotation.heading);
+            // let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
+            // let rollRad = THREE.MathUtils.degToRad(rotation. roll);
+            // let headingRad = THREE.MathUtils.degToRad(rotation.heading);
 
-            camera.rotation.y = headingRad;
-            camera.updateMatrixWorld();
+            // camera.rotation.set(pitchRad, headingRad, rollRad);
+            // camera.updateMatrixWorld();
 
 
             // view.scene.add(new THREE.AmbientLight(0x404040));
