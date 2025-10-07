@@ -1,13 +1,13 @@
 /* eslint-disable linebreak-style */
 // Utility functions for iTowns XR Example
 async function getCurrentPosition() {
-    if (!navigator.geolocation) {throw new Error('Geolocation not supported');}
+    if (!navigator.geolocation) { throw new Error('Geolocation not supported'); }
     return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject);
     });
 }
 
-function updateGNSSStatus(TCP_status, geo, rotation) {
+export function updateGNSSStatus(TCP_status, geo, rotation) {
     document.getElementById('info').innerHTML =
         `<li><b>TCP server status:</b> ${TCP_status}</li>
         <li><b>Long:</b> ${geo.longitude}</li>
