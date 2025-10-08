@@ -45,6 +45,8 @@
 
         let rotationGlobal = { pitch: 0, heading: 0, roll: 0 };
 
+        console.log(window.location);
+
         // Utility functions are now imported from ./js/utils.js
 
         // -------------------- Main Logic --------------------
@@ -54,7 +56,7 @@
             let rotation = { pitch: 0, heading: 0, roll: 0 };
             try {
                 // const pos = await getCurrentPosition();
-                const pos = await fetch('http://localhost:8085/').then(r => r.json());
+                const pos = await fetch(`https://10.73.118.16:8082/geopos`).then(r => r.json());
                 geo = { longitude: pos.longitude, latitude: pos.latitude };
                 rotation = { pitch: pos.pitch, heading: pos.heading };
                 rotationGlobal = rotation;
@@ -164,6 +166,7 @@
                     .forEach(([k, v]) => {
                         htmlInfo.innerHTML += `<li><b>${k}:</b> ${v}</li>`;
                     });
+                    htmlInfo.innerHTML += `<li><b>Ip hostname:</b> ${window.location.hostname}</li>`;
             }
             
             // Picking function if needed (could be expanded)
