@@ -13,7 +13,8 @@ export function updateGNSSStatus(TCP_status, geo, rotation) {
         <li><b>Long:</b> ${geo.longitude}</li>
         <li><b>Lat:</b> ${geo.latitude}</li>
         <li><b>Heading:</b> ${rotation.heading}</li>
-        <li><b>Pitch:</b> ${rotation.pitch}</li>`;
+        <li><b>Pitch:</b> ${rotation.pitch}</li>
+        <li><b>Ip hostname:</b> ${window.location.hostname}</li>`;
 }
 
 function displayProperties(properties) {
