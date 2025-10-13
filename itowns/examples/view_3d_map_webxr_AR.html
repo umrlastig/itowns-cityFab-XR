@@ -43,43 +43,72 @@
             pessac: { longitude: -0.618932, latitude: 44.794517 },
         };
 
-        let rotationGlobal = { pitch: 0, heading: 0, roll: 0 };
+        // let rotationGlobal = { pitch: 0, heading: 0, roll: 0 };
+        let TCP_status = "Disconnected";
+        let data = { geo: null, rotation: null, speedMps: null, antennaID: null, src: null, tMillis: null };
 
-        console.log(window.location);
 
         // Utility functions are now imported from ./js/utils.js
 
         // -------------------- Main Logic --------------------
+
+        async function waitForGNSS() {
+            return new Promise((resolve, reject) => {
+                const ws = new WebSocket('ws://10.73.118.207:5005');
+                ws.onopen = () => {
+                    TCP_status = "Connected";
+                    console.log("WebSocket connected to GNSS master");
+                };
+                ws.onmessage = (event) => {
+                    try {
+                        const gnss = JSON.parse(event.data);
+                        if (gnss.valid) {
+                            ws.close();
+                            resolve(gnss);
+                        }
+                    } catch (e) {
+                        console.warn('Invalid GNSS data from WebSocket:', e);
+                    }
+                };
+                ws.onerror = (e) => {
+                    TCP_status = "Disconnected";
+                    reject(e);
+                };
+                ws.onclose = () => {
+                    TCP_status = "Disconnected";
+                };
+            });
+        }
+
         async function main() {
-            let TCP_status = "Disconnected";
-            let geo = DEFAULT_POSITION.pessac;
             let rotation = { pitch: 0, heading: 0, roll: 0 };
+            let gnss;
             try {
-                // const pos = await getCurrentPosition();
-                const pos = await fetch(`https://10.73.118.16:8082/geopos`).then(r => r.json());
-                geo = { longitude: pos.longitude, latitude: pos.latitude };
-                rotation = { pitch: pos.pitch, heading: pos.heading };
-                rotationGlobal = rotation;
+                gnss = await waitForGNSS();
+                data.geo = { longitude: gnss.lon, latitude: gnss.lat };
+                data.rotation = { heading: gnss.headingDeg };
+                data.speedMps = gnss.speedMps;
+                data.antennaID = gnss.antennaID;
+                data.src = gnss.src;
+                data.tMillis = gnss.tMillis;
                 TCP_status = "Connected";
             } catch (e) {
-                console.warn("Geolocation error, using default position.", e);
+                data.geo = DEFAULT_POSITION.mlv;
+                console.warn("WebSocket GNSS error, using default position.", e);
             }
 
-            if (geo.longitude == undefined) {
-                geo = DEFAULT_POSITION.mlv;
-                TCP_status = "Disconnected";
-            }
+            itowns.updateGNSSStatus(TCP_status, data, rotation);
 
             // ---- Initialize iTowns view ----
             const placement = {
-                coord: new itowns.Coordinates('EPSG:4326', geo.longitude, geo.latitude),
+                coord: new itowns.Coordinates('EPSG:4326', data.geo.longitude, data.geo.latitude),
                 range: 10,
                 tilt: 5,
                 heading: 0
             };
             const viewerDiv = document.getElementById('viewerDiv');
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
-
+            
             // ---- Add XR Button ----
             view.renderer.xr.enabled = true;
             viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['local'], optionFeatures: ['depth-sensing'], depthSensing: { usagePreference: ["cpu-optimized", "gpu-optimized"], dataFormatPreference: ["luminance-alpha", "float32"] } }));
@@ -127,8 +156,8 @@
                 zoom: { min: 14 },
                 style: { fill: { color: new THREE.Color(0x000000), base_altitude: altitudeBuildings, extrusion_height: extrudeBuildings } }
             });
-            // wfsWire.wireframe = true;
-            // view.addLayer(wfsWire);
+            wfsWire.wireframe = true;
+            view.addLayer(wfsWire);
 
             const wfsFilled = new itowns.FeatureGeometryLayer('WFS Building', {
                 batchId: (_, id) => id,
@@ -155,7 +184,6 @@
             //         <li><b>Heading:</b> ${rotation.heading}</li>
             //         <li><b>Pitch:</b> ${rotation.pitch}</li>`;
             // }
-            itowns.updateGNSSStatus(TCP_status, geo, rotation);
 
             // Building picking / info
             function displayProperties(properties) {
@@ -182,6 +210,19 @@
                 }
             }
 
+            // const source = new OGC3DTilesSource({ 'https://batiment3d.ign.fr/data/tileset.json' });
+
+            // const layer = new itowns.OGC3DTilesLayer('3DTiles', {
+            //         source,
+            //     });
+
+            //     // Add an event for picking the 3D Tiles layer and displaying
+            //     // information about the picked feature in an html div
+
+            //     // Add the layer to our view
+            //     view.addLayer(window.layer);
+
+
             //setup rotation
             const camera = view.camera.camera3D;
             // let pitchRad = THREE.MathUtils.degToRad(rotation.pitch);
@@ -195,7 +236,7 @@
             // view.scene.add(new THREE.AmbientLight(0x404040));
 
             // ---- XR Session: Add buttons and controllers ----
-            itowns.setupXRCalibrationUI(view, createText, rotationGlobal);
+            itowns.setupXRCalibrationUI(view, createText, data);
 
             // Add event listeners for picking, etc.
             // view.getLayers().find(l => l.id === 'WFS Building')?.whenReady.then(() => {
