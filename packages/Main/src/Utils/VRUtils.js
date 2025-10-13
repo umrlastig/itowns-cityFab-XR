@@ -7,14 +7,32 @@ async function getCurrentPosition() {
     });
 }
 
-export function updateGNSSStatus(TCP_status, geo, rotation) {
+// data = { geo, rotation, speedMps, antennaID, src, tMillis }
+export function updateGNSSStatus(TCP_status, data) {
     document.getElementById('info').innerHTML =
         `<li><b>TCP server status:</b> ${TCP_status}</li>
-        <li><b>Long:</b> ${geo.longitude}</li>
-        <li><b>Lat:</b> ${geo.latitude}</li>
-        <li><b>Heading:</b> ${rotation.heading}</li>
-        <li><b>Pitch:</b> ${rotation.pitch}</li>
-        <li><b>Ip hostname:</b> ${window.location.hostname}</li>`;
+        <li><b>Position:</b>
+        <ul>
+            <li><b>Longitude:</b> ${data.geo.longitude}</li>
+            <li><b>Latitude:</b> ${data.geo.latitude}</li>
+        </ul>
+        </li>
+        <li><b>Rotation:</b>
+        <ul> 
+            <li><b>Heading:</b> ${data.rotation.heading}</li>
+        </ul>
+        </li>
+        <li><b>Speed (m/s):</b> ${data.speedMps}</li>
+        <li><b>Antenna ID:</b> ${data.antennaID}</li>
+        <li><b>Source:</b> ${data.src}</li>
+        <li><b>Timestamp (ms):</b> ${data.tMillis}</li>`;
+        // <li><b>Data:</b> ${JSON.stringify(geo)}</li>
+        // <li><b>Rotation:</b> ${JSON.stringify(rotation)}</li>
+
+        // <li><b>Pitch:</b> ${rotation.pitch}</li>
+        // <li><b>Long:</b> ${geo.longitude}</li>
+        // <li><b>Lat:</b> ${geo.latitude}</li>
+        // <li><b>Heading:</b> ${rotation.heading}</li>
 }
 
 function displayProperties(properties) {

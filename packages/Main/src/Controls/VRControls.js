@@ -544,9 +544,9 @@ Adding a few internal states for reactivity
         const ctrl = data.target;
 
         if (ctrl.userData.handedness === 'left') {
-            this.onLeftButtonReleased(ctrl);
+            this.onLeftButtonReleased(data);
         } else if (ctrl.userData.handedness === 'right') {
-            this.onRightButtonReleased(ctrl);
+            this.onRightButtonReleased(data);
         }
     }
     // Right button released.
