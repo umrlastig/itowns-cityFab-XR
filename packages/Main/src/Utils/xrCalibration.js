@@ -23,8 +23,8 @@ function makeButtonMesh(x, y, z, color, name, label, createText) {
     return mesh;
 }
 
-export function setupXRCalibrationUI(view, createText, gnssData) {
-    const rotationGnss = gnssData.rotation;
+export function setupXRCalibrationUI(view, createText, rotation) {
+    const rotationGnss = rotation;
     const xr = view.renderer.xr;
     const buildingsHand = [];
     const buildingsGround = [];
@@ -128,6 +128,13 @@ export function setupXRCalibrationUI(view, createText, gnssData) {
         // view.scene.add(guizmosGnss);
         let indexRight; let indexLeft;
 
+
+        // itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', view.webXR.vrControls.groupXR);
+        const r = 0.07;
+
+        view.webXR.vrControls.groupXR.quaternion.setFromEuler(new THREE.Euler(-3.0803198, 0.9349983 - r, -1.6468979));
+        view.webXR.vrControls.groupXR.updateMatrixWorld();
+
         // Controller 0: highlight buttons based on pointing
         this.getController(0).addEventListener('connected', () => {
             if (this.getController(0).name == 'left') {
@@ -153,29 +160,6 @@ export function setupXRCalibrationUI(view, createText, gnssData) {
             view.scene.add(leftText);
             this.getController(indexLeft).add(leftText);
         });
-
-        // Handle calibration modes
-        function initBuildingsMode() {
-            vrControls.onRightButtonPressed = function () {};
-            console.log('Buildings mode');
-            gnssRotationButton.visible = false;
-            buildingsButton.visible = false;
-            titleText.visible = false;
-            const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03);
-            text.position.set(0.2, 0.2, 0);
-            const controllerLeft = vrControls.controllers.filter(controller => controller.name == 'left')[0];
-            controllerLeft.add(text);
-            vrControls.onLeftButtonPressed = function (evt) {
-                [text].forEach((obj) => {
-                    obj.geometry.dispose();
-                    obj.material.dispose();
-                    obj.visible = false;
-                    obj.parent.remove(obj);
-                });
-                view.notifyChange();
-                startDemo();
-            };
-        }
 
         function startBuildingsPlannerMode() {
             buildingsButton.visible = false;

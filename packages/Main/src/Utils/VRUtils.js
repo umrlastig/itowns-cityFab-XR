@@ -26,13 +26,6 @@ export function updateGNSSStatus(TCP_status, data) {
         <li><b>Antenna ID:</b> ${data.antennaID}</li>
         <li><b>Source:</b> ${data.src}</li>
         <li><b>Timestamp (ms):</b> ${data.tMillis}</li>`;
-        // <li><b>Data:</b> ${JSON.stringify(geo)}</li>
-        // <li><b>Rotation:</b> ${JSON.stringify(rotation)}</li>
-
-        // <li><b>Pitch:</b> ${rotation.pitch}</li>
-        // <li><b>Long:</b> ${geo.longitude}</li>
-        // <li><b>Lat:</b> ${geo.latitude}</li>
-        // <li><b>Heading:</b> ${rotation.heading}</li>
 }
 
 function displayProperties(properties) {
