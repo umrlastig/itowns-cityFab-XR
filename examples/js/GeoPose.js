@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /**
  * GeoPose Standard Implementation
  * Based on: Basic-YPR (Yaw, Pitch, Roll) specification
