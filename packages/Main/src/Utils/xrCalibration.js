@@ -28,7 +28,6 @@ export function setupXRCalibrationUI(view, createText, rotation) {
     const xr = view.renderer.xr;
     const buildingsHand = [];
     const buildingsGround = [];
-    // const buildingRealScale = [];
     const objectsCityHall = [];
     const modelsName = ['LEG-city_hall', 'LEG-city_hall-1', 'LEG-city_hall-2'];
 
@@ -37,7 +36,6 @@ export function setupXRCalibrationUI(view, createText, rotation) {
     // Buildings planner
     async function initBuildingsPlannerMode() {
         // ---- Load 3D model ----
-
         // Object 0
         const mtlLoader = new MTLLoader().setPath('obj/');
         const material0 = await mtlLoader.loadAsync(`${modelsName[0]}.mtl`);
@@ -76,6 +74,12 @@ export function setupXRCalibrationUI(view, createText, rotation) {
         object2.updateMatrixWorld();
         objectsCityHall.push(object2);
 
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const cube = new THREE.Mesh(geometry, material);
+        cube.name = 'data';
+        buildingsGround.push(cube.clone());
+        buildingsHand.push(cube);
 
         // const buildings = [];
         for (let i = 0; i < 3; i++) {
@@ -91,20 +95,23 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             buildingsGround.push(objectCloneGround);
 
             objectsCityHall[i].visible = false;
-            objectsCityHall[i].scale.set(0.8, 0.8, 0.8);
+            objectsCityHall[i].scale.set(1, 1, 1);
             view.scene.add(objectsCityHall[i]);
         }
     }
 
     xr.addEventListener('sessionstart', function () {
         const vrControls = view.webXR.vrControls;
-        const scenarioText = ['scenario 1', 'scenario 2', 'scenario 3'];
+        const scenarioText = ['data', 'scenario 1', 'scenario 2', 'scenario 3'];
         // Prepare mesh creation once
         const gnssRotationButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00, 'gnssRotationButton', 'Gnss', createText);
         const buildingsButton = makeButtonMesh(0.3, 0.1, 0.01, 0x008000, 'buildingsButton', 'Buildings', createText);
-        const leftText = createText('Left button to set transparent data', 0.03);
+        const leftText = createText('Y button to set transparent data', 0.03);
         const rightText = createText('A button for GNSS / B Button for urban planning', 0.03);
 
+        const usageText = createText('', 0.03);
+        const natureText = createText('', 0.03);
+        const cleabsText = createText('', 0.03);
 
         let baseOrientation;
         if (baseOrientation == undefined) { baseOrientation = vrControls.groupXR.quaternion.clone().normalize(); }
@@ -144,8 +151,19 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             }
 
             rightText.position.set(0, 0.1, 0);
+            usageText.position.set(0.25, 1.6, -0.8);
+            natureText.position.set(0.25, 1.65, -0.8);
+            cleabsText.position.set(0.25, 1.7, -0.8);
+
             view.scene.add(rightText);
+            view.scene.add(usageText);
+            view.scene.add(natureText);
+            view.scene.add(cleabsText);
+
             this.getController(indexRight).add(rightText);
+            view.webXR.vrControls.groupXR.add(usageText);
+            view.webXR.vrControls.groupXR.add(natureText);
+            view.webXR.vrControls.groupXR.add(cleabsText);
         });
 
         // Controller 1: add buttons and handle press
@@ -161,6 +179,29 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             this.getController(indexLeft).add(leftText);
         });
 
+        // Handle calibration modes
+        function initBuildingsMode() {
+            vrControls.onRightButtonPressed = function () {};
+            console.log('Buildings mode');
+            gnssRotationButton.visible = false;
+            buildingsButton.visible = false;
+            titleText.visible = false;
+            const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03);
+            text.position.set(0.2, 0.2, 0);
+            const controllerLeft = vrControls.controllers.filter(controller => controller.name == 'left')[0];
+            controllerLeft.add(text);
+            vrControls.onLeftButtonPressed = function (evt) {
+                [text].forEach((obj) => {
+                    obj.geometry.dispose();
+                    obj.material.dispose();
+                    obj.visible = false;
+                    obj.parent.remove(obj);
+                });
+                view.notifyChange();
+                // startDemo();
+            };
+        }
+
         function startBuildingsPlannerMode() {
             buildingsButton.visible = false;
             gnssRotationButton.visible = false;
@@ -171,7 +212,11 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                 // add building to left hand
                 building.visible = true;
                 building.position.set(-0.1 + (i * 0.13), 0.1, 0.05); // spread cubes horizontally
-                building.scale.set(0.003, 0.003, 0.003); // make them smaller
+                if (i === 0) {
+                    building.scale.set(0.03, 0.03, 0.03);
+                } else {
+                    building.scale.set(0.003, 0.003, 0.003);
+                }
                 vrControls.controllers[indexLeft].add(building);
                 building.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2);
                 building.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / -2);
@@ -181,23 +226,41 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                 titleText.position.set(building.position.x, building.position.y - 0.04, building.position.z);
                 vrControls.controllers[indexLeft].add(titleText);
 
-                console.log(view.camera.camera3D.position.z);
+                // // add building to ground
+                // buildingsGround[i].visible = true;
+                // buildingsGround[i].position.set(view.camera.camera3D.position.x + (i * 2) - 4, view.camera.camera3D.position.y - 2, view.camera.camera3D.position.z);
+                // view.scene.add(buildingsGround[i]);
+                // const coord = new itowns.Coordinates('EPSG:4978', buildingsGround[i].position.x, buildingsGround[i].position.y, buildingsGround[i].position.z);
+                // // set object position to the coordinate
+                // coord.toVector3(buildingsGround[i].position);
+                // // set ENH orientation, looking at the sky (Z axis), so Y axis look to the north..
+                // buildingsGround[i].lookAt(coord.geodesicNormal.clone().add(buildingsGround[i].position));
+                // itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', buildingsGround[i]);
+                // buildingsGround[i].updateMatrixWorld();
 
-                // add building to ground
-                buildingsGround[i].visible = true;
-                buildingsGround[i].position.set(view.camera.camera3D.position.x + (i * 2) - 4, view.camera.camera3D.position.y - 2, view.camera.camera3D.position.z);
-                view.scene.add(buildingsGround[i]);
-                const coord = new itowns.Coordinates('EPSG:4978', buildingsGround[i].position.x, buildingsGround[i].position.y, buildingsGround[i].position.z - 3).as('EPSG:4978');
-                // set object position to the coordinate
-                coord.toVector3(buildingsGround[i].position);
-                // set ENH orientation, looking at the sky (Z axis), so Y axis look to the north..
-                buildingsGround[i].lookAt(coord.geodesicNormal.clone().add(buildingsGround[i].position));
-                itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', buildingsGround[i]);
-                buildingsGround[i].updateMatrixWorld();
-
-                // buildingsGround[i].rotateOnAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2);
-                buildingsGround[i].updateMatrixWorld();
+                // // buildingsGround[i].rotateOnAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2);
+                // buildingsGround[i].updateMatrixWorld();
             });
+
+            const groupBuildingsGround = new THREE.Group();
+
+            buildingsGround.forEach((building, i) => {
+                building.visible = true;
+                building.position.set((i * 2) - 4, -2, 0);
+                groupBuildingsGround.add(building);
+                building.rotateOnAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2);
+                building.updateMatrixWorld();
+            });
+
+            groupBuildingsGround.position.set(view.camera.camera3D.position.x - 15, view.camera.camera3D.position.y, view.camera.camera3D.position.z);
+            const coord = new itowns.Coordinates('EPSG:4978', groupBuildingsGround.position.x, groupBuildingsGround.position.y, groupBuildingsGround.position.z);
+            // set object position to the coordinate
+            coord.toVector3(groupBuildingsGround.position);
+            // set ENH orientation, looking at the sky (Z axis), so Y axis look to the north
+            groupBuildingsGround.lookAt(coord.geodesicNormal.clone().add(groupBuildingsGround.position));
+            itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', groupBuildingsGround);
+            groupBuildingsGround.updateMatrixWorld();
+            view.scene.add(groupBuildingsGround);
 
             vrControls.onRightButtonReleased = function (evt) {
                 const buttonIndex = evt.message.buttonIndex;
@@ -216,9 +279,9 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                         raycaster.ray.origin = pos;
                         raycaster.ray.direction = dir.multiplyScalar(-1);
                         const intersects = raycaster.intersectObjects(view.scene.children);
-                        const x = 4201500.352129;
-                        const y = 189933.474110;
-                        const z = 4778910.386590208;
+                        const x = 4201375.606521;
+                        const y = 189870.343307;
+                        const z = 4779000.386590208;
                         const piRotation = Math.PI / 2;
                         intersects.forEach((intersect) => {
                             if (intersect.object.parent.name == modelsName[0]) {
@@ -255,7 +318,6 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                                 objectsCityHall[0].visible = false;
                                 objectsCityHall[1].visible = false;
                                 objectsCityHall[2].visible = true;
-
                                 objectsCityHall[2].position.set(x, y, z);
                                 const coord = new itowns.Coordinates('EPSG:4978', objectsCityHall[2].position.x, objectsCityHall[2].position.y, objectsCityHall[2].position.z - 3).as('EPSG:4978');
                                 // set object position to the coordinate
@@ -266,6 +328,10 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                                 objectsCityHall[2].updateMatrixWorld();
                                 objectsCityHall[2].rotateOnAxis(new THREE.Vector3(0, 0, 1), piRotation);
                                 objectsCityHall[2].updateMatrixWorld();
+                            } else if (intersect.object.name == 'data') {
+                                objectsCityHall.forEach((building) => {
+                                    building.visible = false;
+                                });
                             }
                         });
                         view.notifyChange();
@@ -306,7 +372,7 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                     obj.parent.remove(obj);
                 });
                 view.notifyChange();
-                startDemo();
+                // startDemo();
             };
         }
 
@@ -394,38 +460,6 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             }
         }
 
-        function startDemo() {
-            vrControls.onLeftAxisChanged = function () {};
-            vrControls.onRightAxisChanged = function () {};
-            vrControls.onLeftButtonPressed = function () {};
-            const text = createText('Demonstration session', 0.03);
-            text.position.set(0.2, 0.2, 0);
-            view.webXR.vrControls.controllers[1].add(text);
-            console.log('Begin demo');
-            // vrControls.onRightButtonPressed = function () {
-            //     let line;
-            //     const controllerRight = this.getController(0);
-            //     controllerRight.children.forEach((element) => {
-            //         if (element.isLine) {
-            //             line = element;
-            //         }
-            //     });
-            //     const raycaster = new itowns.THREE.Raycaster();
-            //     const pos = new itowns.THREE.Vector3();
-            //     const dir = new itowns.THREE.Vector3();
-            //     if (line) {
-            //         line.getWorldPosition(pos);
-            //         line.getWorldDirection(dir);
-            //         raycaster.ray.origin = pos;
-            //         raycaster.ray.direction = dir.multiplyScalar(-1);
-            //         const intersects = raycaster.intersectObjects(view.scene.children);
-            //         if (intersects.length > 0 && intersects[0].object.name == 'WFS Building') {
-            //             // You can add displayProperties logic here if needed
-            //         }
-            //     }
-            // };
-        }
-
         vrControls.onRightButtonReleased = function (evt) {
             console.log('Right controller button pressed event:', evt);
             const buttonIndex = evt.message.buttonIndex;
@@ -495,12 +529,69 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             view.notifyChange();
         }
 
-        vrControls.onLeftButtonPressed = function (evt) {
-            console.log('Left controller button pressed event:', evt);
+        function updateText(message, text) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            let metrics = null;
+            const textHeight = 100;
+            context.font = `normal ${textHeight}px Arial`;
+            metrics = context.measureText(message);
+            const textWidth = metrics.width;
+            canvas.width = textWidth;
+            canvas.height = textHeight;
+            context.font = `normal ${textHeight}px Arial`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillStyle = '#ffffff';
+            context.fillText(message, textWidth / 2, textHeight / 2);
+
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide,
+                map: texture,
+                transparent: true,
+            });
+
+            text.material = material;
+            text.geometry.dispose();
+            text.geometry = new THREE.PlaneGeometry((0.03 * textWidth) / textHeight, 0.03);
+        }
+
+        vrControls.onLeftButtonReleased = function (evt) {
             const buttonIndex = evt.message.buttonIndex;
             if (buttonIndex === 5) { // Y button
-                console.log('Y button pressed on left controller');
                 setTransparentData(this.view);
+            } else if (buttonIndex === 1) { // grip button
+                const controllerLeft = this.controllers.filter(controller => controller.name == 'left')[0];
+                let line;
+                // eslint-disable-next-line no-unused-expressions
+                controllerLeft.children.forEach((element) => { element.isLine ? line = element : console.warn('No line in controler'); });
+                const raycaster = new THREE.Raycaster();
+                const pos = new THREE.Vector3();
+                const dir = new THREE.Vector3();
+                if (line) {
+                    line.getWorldPosition(pos);
+                    line.getWorldDirection(dir);
+                    raycaster.ray.origin = pos;
+                    raycaster.ray.direction = dir.multiplyScalar(-1);
+                    const intersects = raycaster.intersectObjects(view.scene.children);
+                    intersects.forEach((intersect) => {
+                        if (intersect.object.layer && intersect.object.layer.isFeatureGeometryLayer) {
+                            const batchId = intersect.object.geometry.attributes.batchId.array[intersect.face.a];
+                            const feature = intersect.object.feature;
+                            const usage = `usage: ${feature.geometries[batchId].properties.usage_1}`;
+                            const nature = `nature: ${feature.geometries[batchId].properties.nature}`;
+                            const cleabs = `cleabs: ${feature.geometries[batchId].properties.cleabs}`;
+
+                            updateText(usage, usageText);
+                            updateText(nature, natureText);
+                            updateText(cleabs, cleabsText);
+                        }
+                    });
+                }
             }
         };
     });
