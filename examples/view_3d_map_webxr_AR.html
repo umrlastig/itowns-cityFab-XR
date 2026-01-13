@@ -9,6 +9,8 @@
     <!-- Import iTowns -->
     <script src="../dist/itowns.js"></script>
     <script src="../dist/debug.js"></script>
+    <script src="js/GeoPose.js"></script>
+    <script src="./js/GeoPoseToThree.js"></script>   
     <script type="importmap">
         {
             "imports": {
@@ -32,8 +34,7 @@
         import { createText } from 'three/addons/webxr/Text2D.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
-        import { GeoPose } from './js/GeoPose.js';
-        import { geoposeToThreeRotation, applyGeoposeRotation } from './js/GeoPoseToThree.js';
+        // import { GeoPose } from './js/GeoPose.js';
         // import placeObjectOnGround from './../../packages/Main/src/Utils/placeObjectOnGround.js';
 
         // -------------------- Config & Constants --------------------
@@ -94,7 +95,7 @@
             TCP_status = "Connected";
 
             // Create GeoPose from GNSS data following the standard schema
-            geopose = GeoPose.fromGNSS(gnss, gnss.rotation.yaw, gnss.rotation.pitch, gnss.rotation.roll);
+            geopose = fromGNSS(gnss, gnss.rotation.yaw, gnss.rotation.pitch, gnss.rotation.roll);
             geopose.validate();
             
             console.log('GeoPose data:', geopose.toJSON());

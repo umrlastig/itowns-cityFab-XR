@@ -1,12 +1,12 @@
 /**
  * GeoPose Standard Implementation
  * Based on: Basic-YPR (Yaw, Pitch, Roll) specification
- * 
+ *
  * Reference: https://www.ogc.org/standards/geopose
  * JSON Schema validation for position (lat, lon, h) and angles (yaw, pitch, roll)
  */
 
-export class GeoPose {
+class GeoPose {
     /**
      * Create a GeoPose object following the OGC GeoPose standard
      * @param {number} lat - Latitude in degrees (-90 to 90)
@@ -20,12 +20,12 @@ export class GeoPose {
         this.position = {
             lat: lat,      // latitude in degrees
             lon: lon,      // longitude in degrees
-            h: h           // altitude in meters
+            h: h,           // altitude in meters
         };
         this.angles = {
             yaw: yaw,      // rotation around vertical axis (degrees)
             pitch: pitch,  // rotation around horizontal axis E-W (degrees)
-            roll: roll     // rotation around N-S axis (degrees)
+            roll: roll,     // rotation around N-S axis (degrees)
         };
     }
 
@@ -38,9 +38,9 @@ export class GeoPose {
         if (!this.position || typeof this.position !== 'object') {
             throw new Error('GeoPose: position object is required');
         }
-        
-        if (typeof this.position.lat !== 'number' || 
-            typeof this.position.lon !== 'number' || 
+
+        if (typeof this.position.lat !== 'number' ||
+            typeof this.position.lon !== 'number' ||
             typeof this.position.h !== 'number') {
             throw new Error('GeoPose: position must contain numeric lat, lon, and h properties');
         }
@@ -57,8 +57,8 @@ export class GeoPose {
             throw new Error('GeoPose: angles object is required');
         }
 
-        if (typeof this.angles.yaw !== 'number' || 
-            typeof this.angles.pitch !== 'number' || 
+        if (typeof this.angles.yaw !== 'number' ||
+            typeof this.angles.pitch !== 'number' ||
             typeof this.angles.roll !== 'number') {
             throw new Error('GeoPose: angles must contain numeric yaw, pitch, and roll properties');
         }
@@ -75,13 +75,13 @@ export class GeoPose {
             position: {
                 lat: this.position.lat,
                 lon: this.position.lon,
-                h: this.position.h
+                h: this.position.h,
             },
             angles: {
                 yaw: this.angles.yaw,
                 pitch: this.angles.pitch,
-                roll: this.angles.roll
-            }
+                roll: this.angles.roll,
+            },
         };
     }
 
@@ -98,7 +98,7 @@ export class GeoPose {
             data.position.h,
             data.angles.yaw,
             data.angles.pitch,
-            data.angles.roll
+            data.angles.roll,
         );
         geopose.validate();
         return geopose;
@@ -119,7 +119,7 @@ export class GeoPose {
             gnss.altitude || 0,
             yaw,  // Yaw from GNSS heading
             pitch,
-            roll
+            roll,
         );
     }
 
@@ -133,7 +133,7 @@ export class GeoPose {
         this.angles = {
             yaw: yaw,
             pitch: pitch,
-            roll: roll
+            roll: roll,
         };
     }
 
@@ -147,7 +147,7 @@ export class GeoPose {
         this.position = {
             lat: lat,
             lon: lon,
-            h: h
+            h: h,
         };
     }
 
@@ -162,7 +162,7 @@ export class GeoPose {
             this.position.h,
             this.angles.yaw,
             this.angles.pitch,
-            this.angles.roll
+            this.angles.roll,
         );
     }
 }
