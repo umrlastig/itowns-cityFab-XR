@@ -28,7 +28,6 @@
         <ul id="info"></ul>
     </div>
     <script type="module">
-
         import * as THREE from 'three';
         import { XRButton } from 'three/addons/webxr/XRButton.js';
         import { createText } from 'three/addons/webxr/Text2D.js';
@@ -47,7 +46,7 @@
         };
 
         let TCP_status = "Disconnected";
-        let data = { geo: null, rotation: {heading: null}, speedMps: null, antennaID: null, src: null, tMillis: null };
+        let data = { geo: { longitude: null, latitude: null, altitude: null }, rotation: {heading: null, pitch: null}, speedMps: null, antennaID: null, src: null, tMillis: null };
 
         // -------------------- Main Logic --------------------
 
@@ -86,8 +85,8 @@
         
         try {
             gnss = await waitForGNSS();
-            data.geo = { longitude: gnss.lon, latitude: gnss.lat };
-            data.rotation = { heading: gnss.headingDeg };
+            data.geo = { longitude: gnss.lon, latitude: gnss.lat, altitude: gnss.alt };
+            data.rotation = { heading: gnss.headingDeg, pitch: gnss.pitchDeg };
             data.speedMps = gnss.speedMps;
             data.antennaID = gnss.antennaID;
             data.src = gnss.src;
