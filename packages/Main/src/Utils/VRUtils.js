@@ -15,11 +15,13 @@ export function updateGNSSStatus(TCP_status, data) {
         <ul>
             <li><b>Longitude:</b> ${data.geo.longitude}</li>
             <li><b>Latitude:</b> ${data.geo.latitude}</li>
+            <li><b>Altitude:</b> ${data.geo.altitude}</li>
         </ul>
         </li>
         <li><b>Rotation:</b>
         <ul> 
             <li><b>Heading:</b> ${data.rotation.heading}</li>
+            <li><b>Pitch:</b> ${data.rotation.pitch}</li>
         </ul>
         </li>
         <li><b>Speed (m/s):</b> ${data.speedMps}</li>

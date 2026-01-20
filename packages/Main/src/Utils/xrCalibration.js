@@ -3,7 +3,6 @@
 /* eslint-disable no-undef */
 /* eslint-disable linebreak-style */
 // XR Calibration UI logic for iTowns XR Example
-import { updateGNSSStatus } from 'Main';
 import * as THREE from 'three';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
@@ -23,56 +22,83 @@ function makeButtonMesh(x, y, z, color, name, label, createText) {
     return mesh;
 }
 
+/**
+ *
+ * @param {THREE.Vector3} bWorld
+ * @param {THREE.Matrix3} Rx
+ * @param {THREE.Matrix3} Rz
+ * @returns {number} theta angle in radians
+ */
+function calculateRyAngleFromWorldBaseline(bWorld, Rx, Rz) {
+    // v1 = Rx * (1, 0, 0) - local baseline rotated by Rx
+    const v1 = new THREE.Vector3(1, 0, 0).applyMatrix3(Rx);
+
+    // v2 = Rz^T * bWorld - remove Rz rotation to get Ry*Rx effect
+    const RzT = new THREE.Matrix3().copy(Rz).transpose();
+    const v2 = bWorld.clone().applyMatrix3(RzT);
+
+    // theta from XZ (Y rotation)
+    const angle_v1 = Math.atan2(v1.z, v1.x);
+    const angle_v2 = Math.atan2(v2.z, v2.x);
+    const theta = angle_v2 - angle_v1;
+
+    // Valide Y
+    const yDiff = Math.abs(v1.y - v2.y);
+    if (yDiff > 0.01) {
+        console.warn(`Y component mismatch: ${yDiff}. Check rotation order or data.`);
+    }
+
+    console.log(`Calculated Ry angle (theta): ${THREE.MathUtils.radToDeg(theta).toFixed(2)}°`);
+    return theta;
+}
+
 export function setupXRCalibrationUI(view, createText, rotation) {
     const rotationGnss = rotation;
     const xr = view.renderer.xr;
     const buildingsHand = [];
     const buildingsGround = [];
     const objectsCityHall = [];
-    const modelsName = ['LEG-city_hall', 'LEG-city_hall-1', 'LEG-city_hall-2'];
+    const modelsName = ['LEG-media_library_V2', 'LEG-media_library_alternative_A_V1', 'LEG-media_library_alternative_B_V1'];
+
+    // Occlusion variables
+    let depthActive = false;
+
+    initBuildingsPlannerMode();
+
+    function toggleDepthSensing(session, enable) {
+        if (enable && session.requestDepthSensing) {
+            session.requestDepthSensing();
+            console.log('Depth sensing requested');
+        } else if (!enable && session.pauseDepthSensing) {
+            session.pauseDepthSensing();
+            console.log('Depth sensing paused');
+        }
+    }
 
     initBuildingsPlannerMode();
 
     // Buildings planner
     async function initBuildingsPlannerMode() {
         // ---- Load 3D model ----
-        // Object 0
-        const mtlLoader = new MTLLoader().setPath('obj/');
-        const material0 = await mtlLoader.loadAsync(`${modelsName[0]}.mtl`);
-        material0.preload();
-        const objLoader = new OBJLoader().setPath('obj/');
-        objLoader.setMaterials(material0);
-        const object0 = await objLoader.loadAsync(`${modelsName[0]}.obj`);
-        object0.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y + 60, view.camera.camera3D.position.z + 28);
-        itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', object0);
-        object0.name = modelsName[0];
-        object0.updateMatrixWorld();
-        const ambientLight = new THREE.AmbientLight(0x404040, 5); // soft white light
-        view.scene.add(ambientLight);
-        object0.add(ambientLight);
-        objectsCityHall.push(object0);
 
-        // Object 1
-        const material1 = await mtlLoader.loadAsync(`${modelsName[1]}.mtl`);
-        material1.preload();
-        objLoader.setMaterials(material1);
-        const object1 = await objLoader.loadAsync(`${modelsName[1]}.obj`);
-        object1.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y + 60, view.camera.camera3D.position.z + 28);
-        itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', object1);
-        object1.name = modelsName[1];
-        object1.updateMatrixWorld();
-        objectsCityHall.push(object1);
-
-        // Object 2
-        const material2 = await mtlLoader.loadAsync(`${modelsName[2]}.mtl`);
-        material2.preload();
-        objLoader.setMaterials(material2);
-        const object2 = await objLoader.loadAsync(`${modelsName[2]}.obj`);
-        object2.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y + 60, view.camera.camera3D.position.z + 28);
-        itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', object2);
-        object2.name = modelsName[2];
-        object2.updateMatrixWorld();
-        objectsCityHall.push(object2);
+        for (const name of modelsName) {
+            const mtlLoader = new MTLLoader().setPath('obj/');
+            // eslint-disable-next-line no-await-in-loop
+            const material0 = await mtlLoader.loadAsync(`${name}.mtl`);
+            material0.preload();
+            const objLoader = new OBJLoader().setPath('obj/');
+            objLoader.setMaterials(material0);
+            // eslint-disable-next-line no-await-in-loop
+            const object0 = await objLoader.loadAsync(`${name}.obj`);
+            object0.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y + 60, view.camera.camera3D.position.z + 28);
+            itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', object0);
+            object0.name = name;
+            object0.updateMatrixWorld();
+            const ambientLight = new THREE.AmbientLight(0x404040, 5); // soft white light
+            view.scene.add(ambientLight);
+            object0.add(ambientLight);
+            objectsCityHall.push(object0);
+        }
 
         const geometry = new THREE.BoxGeometry(1, 1, 1);
         const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -102,6 +128,14 @@ export function setupXRCalibrationUI(view, createText, rotation) {
 
     xr.addEventListener('sessionstart', function () {
         const vrControls = view.webXR.vrControls;
+        const session = this.getSession ? this.getSession() : xr.getSession();
+        
+        // Request depth sensing for occlusion if available
+        if (session && session.requestDepthSensing) {
+            session.requestDepthSensing();
+            console.log('Depth sensing enabled for occlusion');
+        }
+
         const scenarioText = ['data', 'scenario 1', 'scenario 2', 'scenario 3'];
         // Prepare mesh creation once
         const gnssRotationButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00, 'gnssRotationButton', 'Gnss', createText);
@@ -406,14 +440,17 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                 if (!pos || pos.longitude === undefined) {
                     throw new Error('No valid GNSS position received');
                 }
+                // Check for pre-calculated world position
+                if (!pos.worldPosition) {
+                    throw new Error('World position not provided in GNSS response');
+                }
             } catch (e) {
                 console.warn('GNSS fetch error:', e);
-                // Optionally, show a message in the UI or reset only what is needed
                 return; // Exit gracefully, do not proceed with broken data
             }
 
             try {
-                const headingRad = THREE.MathUtils.degToRad((pos.heading + 270) % 360); // +90 to compensate for helmet rotation
+                const headingRad = THREE.MathUtils.degToRad((pos.heading + 270) % 360); // +270 to compensate for helmet rotation
                 const pitchRad = THREE.MathUtils.degToRad(pos.pitch);
 
                 console.log('Update guizmo rotation', pos.heading);
@@ -422,36 +459,36 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                 // let headingRad = THREE.MathUtils.degToRad(rotationGnss.heading);
                 const groupXR = view.webXR.vrControls.groupXR;
 
-                // --- Heading rotation ---
-                const upAxis = groupXR.position.clone().normalize().multiplyScalar(-1); // Assuming the up direction is -position vector
-                // Create a quaternion representing a heading rotation about the up axis.
-                const headingQuaternion = new THREE.Quaternion()
-                    .setFromAxisAngle(upAxis, headingRad)
-                    .normalize();
+                // Rz (heading/yaw rotation)
+                const Rz = new THREE.Matrix3().setFromMatrix4(
+                    new THREE.Matrix4().makeRotationZ(headingRad),
+                );
 
-                groupGuizmo.quaternion.copy(baseOrientation);
-                const buffer = baseOrientation.clone().premultiply(headingQuaternion);
-                guizmosGnss.quaternion.copy(buffer);
-                groupXR.quaternion.copy(guizmosGnss.quaternion.clone());
+                // Rx (pitch rotation)
+                const Rx = new THREE.Matrix3().setFromMatrix4(
+                    new THREE.Matrix4().makeRotationX(pitchRad),
+                );
 
-                guizmosGnss.updateMatrixWorld();
-                groupGuizmo.updateMatrixWorld();
+                // world baseline from world position
+                const worldPos = new THREE.Vector3(pos.worldPosition.x, pos.worldPosition.y, pos.worldPosition.z);
+                const bWorldNormalized = worldPos.clone().normalize();
 
-                // --- Pitch rotation ---
-                // (Assuming (0, 0, 1) is the right direction in local space.)
-                const rightAxis = new THREE.Vector3(0, 0, 1)
-                    .applyQuaternion(baseOrientation)
-                    .normalize();
+                // Calculate Ry angle from world baseline
+                const ryAngle = calculateRyAngleFromWorldBaseline(bWorldNormalized, Rx, Rz);
 
-                // Create a quaternion representing a pitch rotation about the right axis.
-                const pitchQuaternion = new THREE.Quaternion()
-                    .setFromAxisAngle(rightAxis, pitchRad)
-                    .normalize();
+                // Rz * Ry * Rx
+                const Ry = new THREE.Matrix3().setFromMatrix4(
+                    new THREE.Matrix4().makeRotationY(ryAngle),
+                );
 
-                // groupXR.quaternion.premultiply(headingQuaternion);
-                // groupXR.quaternion.premultiply(pitchQuaternion);
-                // groupXR.quaternion.setFromAxisAngle(rightAxis, pitchRad);
+                const RyRx = new THREE.Matrix3().multiplyMatrices(Ry, Rx);
+                const RzRyRx = new THREE.Matrix3().multiplyMatrices(Rz, RyRx);
 
+                // Convert to quaternion and apply
+                const quaternion = new THREE.Quaternion().setFromRotationMatrix(RzRyRx);
+
+                groupXR.quaternion.copy(baseOrientation);
+                groupXR.quaternion.multiplyQuaternions(quaternion, baseOrientation);
                 groupXR.updateMatrixWorld();
                 view.notifyChange();
             } catch (e) {
@@ -564,6 +601,11 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             const buttonIndex = evt.message.buttonIndex;
             if (buttonIndex === 5) { // Y button
                 setTransparentData(this.view);
+            } else if (buttonIndex === 4) { // X button - Toggle depth occlusion
+                const session = xr.getSession();
+                depthActive = !depthActive;
+                toggleDepthSensing(session, depthActive);
+                console.log(`Depth occlusion ${depthActive ? 'enabled' : 'disabled'}`);
             } else if (buttonIndex === 1) { // grip button
                 const controllerLeft = this.controllers.filter(controller => controller.name == 'left')[0];
                 let line;
