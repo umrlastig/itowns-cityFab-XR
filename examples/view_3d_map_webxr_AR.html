@@ -120,7 +120,7 @@
         
         // ---- Add XR Button ----
         view.renderer.xr.enabled = true;
-        viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['local'], optionFeatures: ['depth-sensing'], depthSensing: { usagePreference: ["cpu-optimized", "gpu-optimized"], dataFormatPreference: ["luminance-alpha", "float32"] } }));
+        viewerDiv.appendChild(XRButton.createButton(view.renderer, { requiredFeatures: ['local', 'depth-sensing'], depthSensing: { usagePreference: ["gpu-optimized", "cpu-optimized"], dataFormatPreference: ["float32", "luminance-alpha"] } }));
 
         // ---- Add imagery and elevation layers ----
         function addElevationFromConfig(config) {

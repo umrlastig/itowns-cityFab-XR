@@ -63,15 +63,48 @@ export function setupXRCalibrationUI(view, createText, rotation) {
     // Occlusion variables
     let depthActive = false;
 
-    initBuildingsPlannerMode();
+    // Setup depth occlusion - simplified approach without XRWebGLBinding
+    function setupDepthOcclusionLayer(session) {
+        if (!session) {
+            console.warn('Session not available');
+            return false;
+        }
+
+        try {
+            if (typeof session.requestDepthSensing === 'function') {
+                session.requestDepthSensing();
+                console.log('✓ Depth sensing enabled - real objects will occlude virtual objects');
+                return true;
+            } else {
+                console.warn('Depth sensing not available on this device/session');
+                return false;
+            }
+        } catch (e) {
+            console.warn('Error enabling depth sensing:', e.message);
+            return false;
+        }
+    }
 
     function toggleDepthSensing(session, enable) {
-        if (enable && session.requestDepthSensing) {
-            session.requestDepthSensing();
-            console.log('Depth sensing requested');
-        } else if (!enable && session.pauseDepthSensing) {
-            session.pauseDepthSensing();
-            console.log('Depth sensing paused');
+        if (!session) {
+            console.warn('Session not available');
+            return;
+        }
+
+        try {
+            if (enable) {
+                if (typeof session.requestDepthSensing === 'function') {
+                    session.requestDepthSensing();
+                    console.log('✓ Depth sensing enabled');
+                } else {
+                    console.warn('requestDepthSensing not available');
+                }
+            } else if (typeof session.pauseDepthSensing === 'function') {
+                    session.pauseDepthSensing();
+                    console.log('✓ Depth sensing paused');
+                }
+        } catch (e) {
+            console.warn('Error toggling depth sensing:', e.message);
         }
     }
 
@@ -129,11 +162,17 @@ export function setupXRCalibrationUI(view, createText, rotation) {
     xr.addEventListener('sessionstart', function () {
         const vrControls = view.webXR.vrControls;
         const session = this.getSession ? this.getSession() : xr.getSession();
-        
-        // Request depth sensing for occlusion if available
-        if (session && session.requestDepthSensing) {
-            session.requestDepthSensing();
-            console.log('Depth sensing enabled for occlusion');
+
+        if (session) {
+            // Try to setup depth occlusion layer
+            if (!setupDepthOcclusionLayer(session)) {
+                // Fallback: request depth sensing
+                if (session.requestDepthSensing) {
+                    session.requestDepthSensing();
+                    console.log('Using depth sensing for occlusion');
+                }
+            }
+            depthActive = true;
         }
 
         const scenarioText = ['data', 'scenario 1', 'scenario 2', 'scenario 3'];
@@ -602,7 +641,7 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             if (buttonIndex === 5) { // Y button
                 setTransparentData(this.view);
             } else if (buttonIndex === 4) { // X button - Toggle depth occlusion
-                const session = xr.getSession();
+                const session = evt.frame.session || xr.getSession();
                 depthActive = !depthActive;
                 toggleDepthSensing(session, depthActive);
                 console.log(`Depth occlusion ${depthActive ? 'enabled' : 'disabled'}`);
