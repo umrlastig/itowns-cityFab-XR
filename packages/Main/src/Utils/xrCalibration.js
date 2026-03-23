@@ -59,6 +59,7 @@ export function setupXRCalibrationUI(view, createText, rotation) {
     const buildingsGround = [];
     const objectsCityHall = [];
     const modelsName = ['LEG-media_library_V2', 'LEG-media_library_alternative_A_V1', 'LEG-media_library_alternative_B_V1'];
+    let guizmosObject = null;
 
     // Occlusion variables
     let depthActive = false;
@@ -100,9 +101,9 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                     console.warn('requestDepthSensing not available');
                 }
             } else if (typeof session.pauseDepthSensing === 'function') {
-                    session.pauseDepthSensing();
-                    console.log('✓ Depth sensing paused');
-                }
+                session.pauseDepthSensing();
+                console.log('✓ Depth sensing paused');
+            }
         } catch (e) {
             console.warn('Error toggling depth sensing:', e.message);
         }
@@ -157,6 +158,15 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             objectsCityHall[i].scale.set(1, 1, 1);
             view.scene.add(objectsCityHall[i]);
         }
+        const mtlLoader = new MTLLoader().setPath('obj/');
+        // eslint-disable-next-line no-await-in-loop
+        const material0 = await mtlLoader.loadAsync('guizmos.mtl');
+        material0.preload();
+        const objLoader = new OBJLoader().setPath('obj/');
+        objLoader.setMaterials(material0);
+        // eslint-disable-next-line no-await-in-loop
+        guizmosObject = (await objLoader.loadAsync('guizmos.obj')).children[0];
+        view.scene.add(guizmosObject);
     }
 
     xr.addEventListener('sessionstart', function () {
@@ -175,6 +185,54 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             depthActive = true;
         }
 
+        let baseOrientation;
+        if (baseOrientation == undefined) { baseOrientation = vrControls.groupXR.quaternion.clone().normalize(); }
+
+        guizmosObject.position.set(view.camera.camera3D.position.x, view.camera.camera3D.position.y, view.camera.camera3D.position.z);
+
+        console.log(view.renderer.xr.getReferenceSpace());
+
+        {
+            const headingRad = THREE.MathUtils.degToRad((10));
+            const pitchRad = THREE.MathUtils.degToRad(0);
+
+            // console.log('Update guizmo rotation', pos.heading);
+            console.log(baseOrientation);
+
+            // Rz (heading/yaw rotation)
+            const Rz = new THREE.Matrix3().setFromMatrix4(
+                new THREE.Matrix4().makeRotationZ(headingRad),
+            );
+
+            // Rx (pitch rotation)
+            const Rx = new THREE.Matrix3().setFromMatrix4(
+                new THREE.Matrix4().makeRotationX(pitchRad),
+            );
+
+            // world baseline from world position
+            const worldPos = new THREE.Vector3(view.camera.camera3D.position.x, view.camera.camera3D.position.y, view.camera.camera3D.position.z);
+            const bWorldNormalized = worldPos.clone().normalize();
+
+            // Calculate Ry angle from world baseline
+            const ryAngle = calculateRyAngleFromWorldBaseline(bWorldNormalized, Rx, Rz);
+
+            // Rz * Ry * Rx
+            const Ry = new THREE.Matrix3().setFromMatrix4(
+                new THREE.Matrix4().makeRotationY(ryAngle),
+            );
+
+            const RyRx = new THREE.Matrix3().multiplyMatrices(Ry, Rx);
+            const RzRyRxMatrix3 = new THREE.Matrix3().multiplyMatrices(Rz, RyRx);
+            const RzRyRx = new THREE.Matrix4().setFromMatrix3(RzRyRxMatrix3);
+
+            // Convert to quaternion and apply
+            const quaternion = new THREE.Quaternion().setFromRotationMatrix(RzRyRx);
+
+            guizmosObject.quaternion.copy(quaternion);
+            // guizmosObject.quaternion.multiplyQuaternions(quaternion, baseOrientation);
+        }
+        guizmosObject.updateMatrixWorld();
+
         const scenarioText = ['data', 'scenario 1', 'scenario 2', 'scenario 3'];
         // Prepare mesh creation once
         const gnssRotationButton = makeButtonMesh(0.2, 0.1, 0.01, 0xffff00, 'gnssRotationButton', 'Gnss', createText);
@@ -186,34 +244,21 @@ export function setupXRCalibrationUI(view, createText, rotation) {
         const natureText = createText('', 0.03);
         const cleabsText = createText('', 0.03);
 
-        let baseOrientation;
-        if (baseOrientation == undefined) { baseOrientation = vrControls.groupXR.quaternion.clone().normalize(); }
-
-        // prepare guizmos
-        const groupGuizmo = new THREE.Group();
-        const geometryLineX = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(5, 0, 0)]);
-        const geometryLineY = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 5, 0)]);
-        const geometryLineZ = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 5)]);
-        const materialLine = new THREE.LineBasicMaterial({ color: 0xFF0000 });
-        const materialLineY = new THREE.LineBasicMaterial({ color: 0x00FF00 });
-        const materialLineZ = new THREE.LineBasicMaterial({ color: 0x0000FF });
-        const lineX = new THREE.Line(geometryLineX, materialLine);
-        const lineY = new THREE.Line(geometryLineY, materialLineY);
-        const lineZ = new THREE.Line(geometryLineZ, materialLineZ);
-        groupGuizmo.add(lineX);
-        groupGuizmo.add(lineY);
-        groupGuizmo.add(lineZ);
-        // view.scene.add(groupGuizmo);
-        const guizmosGnss = groupGuizmo.clone();
-        // view.scene.add(guizmosGnss);
         let indexRight; let indexLeft;
-
-
         // itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', view.webXR.vrControls.groupXR);
         const r = 0.07;
 
         view.webXR.vrControls.groupXR.quaternion.setFromEuler(new THREE.Euler(-3.0803198, 0.9349983 - r, -1.6468979));
         view.webXR.vrControls.groupXR.updateMatrixWorld();
+
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const cube = new THREE.Mesh(geometry, material);
+        cube.position.set(1, 1, 1);
+        cube.name = 'testCube';
+        view.scene.add(cube);
+        vrControls.groupXR.add(cube);
+        cube.updateMatrixWorld();
 
         // Controller 0: highlight buttons based on pointing
         this.getController(0).addEventListener('connected', () => {
@@ -252,29 +297,6 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             this.getController(indexLeft).add(leftText);
         });
 
-        // Handle calibration modes
-        function initBuildingsMode() {
-            vrControls.onRightButtonPressed = function () {};
-            console.log('Buildings mode');
-            gnssRotationButton.visible = false;
-            buildingsButton.visible = false;
-            titleText.visible = false;
-            const text = createText('Buildings mode : use right gamepad to move scene and left gamepad to rotate', 0.03);
-            text.position.set(0.2, 0.2, 0);
-            const controllerLeft = vrControls.controllers.filter(controller => controller.name == 'left')[0];
-            controllerLeft.add(text);
-            vrControls.onLeftButtonPressed = function (evt) {
-                [text].forEach((obj) => {
-                    obj.geometry.dispose();
-                    obj.material.dispose();
-                    obj.visible = false;
-                    obj.parent.remove(obj);
-                });
-                view.notifyChange();
-                // startDemo();
-            };
-        }
-
         function startBuildingsPlannerMode() {
             buildingsButton.visible = false;
             gnssRotationButton.visible = false;
@@ -284,7 +306,7 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             buildingsHand.forEach((building, i) => {
                 // add building to left hand
                 building.visible = true;
-                building.position.set(-0.1 + (i * 0.13), 0.1, 0.05); // spread cubes horizontally
+                building.position.set(-0.1 + (i * 0.15), 0.1, 0.05); // spread cubes horizontally
                 if (i === 0) {
                     building.scale.set(0.03, 0.03, 0.03);
                 } else {
@@ -298,21 +320,6 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                 const titleText = createText(scenarioText[i], 0.02);
                 titleText.position.set(building.position.x, building.position.y - 0.04, building.position.z);
                 vrControls.controllers[indexLeft].add(titleText);
-
-                // // add building to ground
-                // buildingsGround[i].visible = true;
-                // buildingsGround[i].position.set(view.camera.camera3D.position.x + (i * 2) - 4, view.camera.camera3D.position.y - 2, view.camera.camera3D.position.z);
-                // view.scene.add(buildingsGround[i]);
-                // const coord = new itowns.Coordinates('EPSG:4978', buildingsGround[i].position.x, buildingsGround[i].position.y, buildingsGround[i].position.z);
-                // // set object position to the coordinate
-                // coord.toVector3(buildingsGround[i].position);
-                // // set ENH orientation, looking at the sky (Z axis), so Y axis look to the north..
-                // buildingsGround[i].lookAt(coord.geodesicNormal.clone().add(buildingsGround[i].position));
-                // itowns.DEMUtils.placeObjectOnGround(view.tileLayer, 'EPSG:4978', buildingsGround[i]);
-                // buildingsGround[i].updateMatrixWorld();
-
-                // // buildingsGround[i].rotateOnAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2);
-                // buildingsGround[i].updateMatrixWorld();
             });
 
             const groupBuildingsGround = new THREE.Group();
@@ -413,61 +420,6 @@ export function setupXRCalibrationUI(view, createText, rotation) {
             };
         }
 
-        function initSunMode() {
-            vrControls.onRightButtonPressed = function () {};
-            console.log('Buildings mode');
-            gnssRotationButton.visible = false;
-            buildingsButton.visible = false;
-            titleText.visible = false;
-            const text = createText('Sun mode : overlay the target on the sun to calibrate the scene', 0.03);
-            text.position.set(0.2, 0.2, 0);
-            const controllerLeft = vrControls.controllers.filter(controller => controller.name == 'left')[0];
-            controllerLeft.add(text);
-            const geometry = new THREE.SphereGeometry(15, 32, 16);
-            const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            const sphere = new THREE.Mesh(geometry, material);
-            sphere.scale.set(0.01, 0.01, 0.01);
-            sphere.position.set(0, 0, -5);
-            view.scene.add(sphere);
-            view.webXR.vrControls.groupXR.children[0].add(sphere);
-            const sunPos = view.simulateSun();
-            const geometryLine = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 10000)]);
-            const materialLine = new THREE.LineBasicMaterial({ color: 0xffff00 });
-            const line = new THREE.Line(geometryLine, materialLine);
-            line.position.set(vrControls.groupXR.clone().position.x, vrControls.groupXR.clone().position.y, vrControls.groupXR.clone().position.z);
-            line.lookAt(sunPos);
-            line.updateMatrixWorld();
-            view.scene.add(line);
-            vrControls.onLeftButtonPressed = function (evt) {
-                [line, sphere, text].forEach((obj) => {
-                    obj.geometry.dispose();
-                    obj.material.dispose();
-                    obj.parent.remove(obj);
-                });
-                view.notifyChange();
-                // startDemo();
-            };
-        }
-
-        function updateGuizmoPosition() {
-            const headingRad = THREE.MathUtils.degToRad(rotationGnss.heading);
-            const pitchRad = THREE.MathUtils.degToRad(0);
-            const groupXR = view.webXR.vrControls.groupXR;
-            const vrControls = view.webXR.vrControls;
-            const upAxis = groupXR.position.clone().normalize();
-            const headingQuaternion = new THREE.Quaternion().setFromAxisAngle(upAxis, headingRad).normalize();
-            guizmosGnss.quaternion.copy(headingQuaternion);
-            groupXR.updateMatrixWorld();
-            const baseOrientation = groupXR.quaternion.clone().normalize();
-            const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(baseOrientation).normalize();
-            const pitchQuaternion = new THREE.Quaternion().setFromAxisAngle(rightAxis, pitchRad).normalize();
-            guizmosGnss.quaternion.premultiply(pitchQuaternion);
-            groupXR.quaternion.premultiply(pitchQuaternion);
-            groupXR.updateMatrixWorld();
-            guizmosGnss.updateMatrixWorld();
-            view.notifyChange();
-        }
-
         async function rotateWithGNSS() {
             let pos;
             try {
@@ -479,13 +431,13 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                 if (!pos || pos.longitude === undefined) {
                     throw new Error('No valid GNSS position received');
                 }
-                // Check for pre-calculated world position
+                // Check for world position
                 if (!pos.worldPosition) {
                     throw new Error('World position not provided in GNSS response');
                 }
             } catch (e) {
                 console.warn('GNSS fetch error:', e);
-                return; // Exit gracefully, do not proceed with broken data
+                return;
             }
 
             try {
@@ -599,7 +551,7 @@ export function setupXRCalibrationUI(view, createText, rotation) {
                     layer.object3d.children.forEach((featureMesh) => {
                         findMeshinChildren(featureMesh);
                         view.notifyChange();
-                    });
+                    }); 
                 });
             }
             view.notifyChange();
