@@ -273,7 +273,6 @@
         function setTransparentData(view) {
             function findMeshinChildren(featureMesh) {
                 const children = featureMesh.children[0];
-                console.log(children);
                 if (children.isMesh) {
                     const material = new THREE.MeshBasicMaterial({ color: children.material.color });
                     material.transparent = true;
@@ -292,7 +291,6 @@
             const layer = view.getLayers().find(l => l.id === 'WFS Building');
             if (layer) {
                 layer.whenReady.then(() => {
-                    console.log('test'); 
                     layer.object3d.children.forEach((featureMesh) => {
                         findMeshinChildren(featureMesh);
                         view.notifyChange();
@@ -564,69 +562,93 @@
         }
 
         // ==================== MODE C — Physical markers + virtual highlight ====================
-        // Semi-transparent highlight boxes mark the positions of the 3 printed physical models.
-        // Pointing at a box + trigger selects that scenario in-situ.
+        // Flat rings mark the positions of the 3 printed physical models on the table.
+        // Rings are always visible (idle opacity). Pointing + trigger selects a scenario:
+        // the pointed ring pulses white while aiming, then locks to the scenario color on release.
         //
-        // CALIBRATION NOTE: Adjust PHYSICAL_MODEL_OFFSETS (in meters, local XR space)
+        // CALIBRATION NOTE: Adjust PHYSICAL_MODEL_OFFSETS (meters, local XR space)
         // to match where you place the physical printed models on-site.
         function setupModeC(view, vrControls, inSituModels) {
-            // Offsets relative to user position at session start (x=right, y=up, z=forward-negative)
-            // Default: 3 models spread on a table ~1m in front, 30cm apart
+            // Offsets relative to XR origin at session start
             const PHYSICAL_MODEL_OFFSETS = [
-                new THREE.Vector3(-0.35, -0.5, -1.0),  // Scénario actuel  (left)
-                new THREE.Vector3(  0.0, -0.5, -1.0),  // Scénario A       (centre)
-                new THREE.Vector3( 0.35, -0.5, -1.0),  // Scénario B       (right)
+                new THREE.Vector3(-0.35, 1, -2.0),  // Scénario actuel  (left)
+                new THREE.Vector3(  0.0, 1, -2.0),  // Scénario A       (centre)
+                new THREE.Vector3( 0.35, 1, -2.0),  // Scénario B       (right)
             ];
 
-            const camera   = view.camera.camera3D;
             const xrOrigin = vrControls.groupXR;
 
-            // Build highlight meshes in local XR space
+            // Build flat ring highlights for each physical model position
             const highlights = PHYSICAL_MODEL_OFFSETS.map((offset, i) => {
-                const geo  = new THREE.BoxGeometry(0.25, 0.02, 0.18);
                 const mat  = new THREE.MeshBasicMaterial({
-                    color: SCENARIO_COLORS[i], transparent: true, opacity: 0.35,
+                    color: SCENARIO_COLORS[i], transparent: true, opacity: 0.6,
                     side: THREE.DoubleSide, depthWrite: false,
                 });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.copy(offset);
-                mesh.name = `highlight_${i}`;
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.06, 0.11, 48), mat);
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.copy(offset);
+                ring.name = `highlight_${i}`;
 
-                // Scenario label above highlight
+                // Invisible hit-plane so raycasting works even when pointing straight down
+                const hitMat  = new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide });
+                const hitDisc = new THREE.Mesh(new THREE.CircleGeometry(0.13, 32), hitMat);
+                hitDisc.rotation.x = -Math.PI / 2;
+                hitDisc.name = `hitdisc_${i}`;
+                ring.add(hitDisc);
+
+                // Scenario label above the ring
                 const label = createText(SCENARIO_LABELS[i], 0.022);
                 label.position.set(0, 0.07, 0);
-                mesh.add(label);
+                ring.add(label);
 
-                xrOrigin.add(mesh);
-                return { mesh, mat, index: i };
+                xrOrigin.add(ring);
+                return { ring, mat, index: i };
             });
 
+            xrOrigin.updateMatrixWorld();
+
+            let selectedIndex    = -1;
             let lastHoveredIndex = -1;
             let triggerCooldown  = false;
 
-            function resetHighlights() {
-                highlights.forEach(h => { h.mat.opacity = 0.35; h.mat.color.setHex(SCENARIO_COLORS[h.index]); });
+            function setRingState(i, state) {
+                // states: 'idle' | 'hover' | 'selected'
+                const h = highlights[i];
+                if (state === 'hover') {
+                    h.mat.color.set(0xffffff);
+                    h.mat.opacity = 0.95;
+                } else if (state === 'selected') {
+                    h.mat.color.setHex(SCENARIO_COLORS[i]);
+                    h.mat.opacity = 0.95;
+                } else {
+                    // idle — dim if another scenario is selected, normal otherwise
+                    h.mat.color.setHex(SCENARIO_COLORS[i]);
+                    h.mat.opacity = selectedIndex !== -1 && selectedIndex !== i ? 0.2 : 0.55;
+                }
             }
 
-            // Continuous raycasting while trigger is held (buttonIndex 0 pressed each frame)
+            function resetToIdle() {
+                highlights.forEach((_, i) => setRingState(i, i === selectedIndex ? 'selected' : 'idle'));
+            }
+
+            // While trigger held: hover the pointed ring
             vrControls.onRightButtonPressed = function (evt) {
-                if (evt.message.buttonIndex !== 0) return; // trigger only
+                if (evt.message.buttonIndex !== 1) return;
                 const controllerRight = this.controllers.find(c => c.userData.handedness === 'right');
                 if (!controllerRight) return;
 
-                const meshes = highlights.map(h => h.mesh);
+                const meshes = highlights.map(h => h.ring);
                 const hits   = raycastFromController(controllerRight, meshes);
-
-                resetHighlights();
+                resetToIdle();
                 lastHoveredIndex = -1;
 
                 if (hits.length > 0) {
-                    const hitMesh = hits[0].object;
-                    const h = highlights.find(h => h.mesh === hitMesh || hitMesh.parent === h.mesh);
-                    if (h) {
-                        h.mat.opacity = 0.75;
-                        h.mat.color.set(0xffffff);
-                        lastHoveredIndex = h.index;
+                    let cur = hits[0].object;
+                    while (cur && !cur.name.startsWith('highlight_')) cur = cur.parent;
+                    if (cur) {
+                        const i = parseInt(cur.name.split('_')[1], 10);
+                        setRingState(i, 'hover');
+                        lastHoveredIndex = i;
                     }
                 }
                 view.notifyChange();
@@ -634,20 +656,14 @@
 
             // Trigger released → confirm selection
             vrControls.onRightButtonReleased = function (evt) {
-                if (evt.message.buttonIndex === 0 && lastHoveredIndex !== -1) {
+                if (evt.message.buttonIndex === 1 && lastHoveredIndex !== -1) {
                     if (triggerCooldown) return;
                     triggerCooldown = true;
-                    showScenario(inSituModels, lastHoveredIndex, view);
-                    // Keep selected highlight bright
-                    highlights.forEach(h => {
-                        h.mat.opacity = h.index === lastHoveredIndex ? 0.9 : 0.2;
-                        h.mat.color.setHex(h.index === lastHoveredIndex ? 0xffffff : SCENARIO_COLORS[h.index]);
-                    });
+                    selectedIndex = lastHoveredIndex;
+                    showScenario(inSituModels, selectedIndex, view);
+                    resetToIdle();
+                    setRingState(selectedIndex, 'selected');
                     setTimeout(() => { triggerCooldown = false; }, 500);
-                }
-                // A button (4) = GNSS recalibration
-                if (evt.message.buttonIndex === 4) {
-                    rotateWithGNSS(view);
                 }
             };
 
