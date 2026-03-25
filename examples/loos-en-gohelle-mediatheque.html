@@ -96,6 +96,19 @@
         }
         #startBtn.ready { opacity: 1; pointer-events: auto; }
         #startBtn:hover { background: #c73350; }
+        #prevPathBtn {
+            margin-top: 12px;
+            padding: 9px 26px;
+            font-size: 0.88em;
+            background: transparent;
+            color: #44dd88;
+            border: 1.5px solid #44dd88;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none;
+            transition: background 0.2s;
+        }
+        #prevPathBtn:hover { background: rgba(68,221,136,0.15); }
         #description { display: none; }
     </style>
 </head>
@@ -123,6 +136,7 @@
             </div>
         </div>
         <button id="startBtn">Démarrer l'expérience XR</button>
+        <button id="prevPathBtn">⬇ Télécharger le parcours précédent</button>
     </div>
 
     <div id="viewerDiv"></div>
@@ -360,13 +374,111 @@
             return raycaster.intersectObjects(targets, true);
         }
 
+        // ==================== PATH TRACKING ====================
+
+        const SAMPLE_MS   = 500; // ms between position samples
+        const STORAGE_KEY = 'stag_xr_path';
+
+        /** Persist current samples to localStorage so a page reload can recover them. */
+        function persistPath(samples, mode, startTime) {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ samples, mode, startTime })); }
+            catch (e) { /* quota exceeded — silently skip */ }
+        }
+
+        /**
+         * Start sampling the XR camera position every SAMPLE_MS milliseconds.
+         * Saves to localStorage on every sample so a reload never loses data.
+         * Returns a tracker object; call tracker.stop() to get the raw points.
+         */
+        function startPathTracking(view, mode) {
+            const samples   = [];
+            const startTime = Date.now();
+            localStorage.removeItem(STORAGE_KEY); // clear any previous session
+            const interval  = setInterval(() => {
+                const pos = new THREE.Vector3();
+                view.camera.camera3D.getWorldPosition(pos);
+                samples.push({ x: pos.x, y: pos.y, z: pos.z, t: Date.now() - startTime });
+                persistPath(samples, mode, startTime); // write after every sample
+            }, SAMPLE_MS);
+            return { stop: () => { clearInterval(interval); return samples; }, mode, startTime };
+        }
+
+        // On page load: check for a saved path from a previous (interrupted) session
+        // and show the download button if one exists.
+        (function checkPreviousPath() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                if (!saved?.samples?.length) return;
+                const btn = document.getElementById('prevPathBtn');
+                btn.style.display = 'inline-block';
+                btn.addEventListener('click', () => {
+                    const geojson = buildPathGeoJSON(saved.samples, saved.mode, saved.startTime);
+                    downloadGeoJSON(geojson, saved.mode, saved.startTime);
+                    localStorage.removeItem(STORAGE_KEY);
+                    btn.style.display = 'none';
+                });
+            } catch (e) { /* corrupt data — ignore */ }
+        })();
+
+        /**
+         * Convert ECEF samples → WGS84 GeoJSON FeatureCollection.
+         * Contains one LineString (the path) + one Point per sample (with timestamp).
+         */
+        function buildPathGeoJSON(samples, mode, startTime) {
+            const wgs84 = samples.map(s => {
+                const c = new itowns.Coordinates('EPSG:4978', s.x, s.y, s.z).as('EPSG:4326');
+                return { lon: c.longitude, lat: c.latitude, alt: c.altitude, t: s.t };
+            });
+
+            return {
+                type: 'FeatureCollection',
+                features: [
+                    {
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: wgs84.map(p => [p.lon, p.lat, p.alt]) },
+                        properties: {
+                            mode,
+                            start_iso:   new Date(startTime).toISOString(),
+                            duration_s:  Math.round((samples[samples.length - 1]?.t || 0) / 1000),
+                            sample_count: samples.length,
+                        },
+                    },
+                    ...wgs84.map((p, i) => ({
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: [p.lon, p.lat, p.alt] },
+                        properties: { index: i, t_ms: p.t, t_s: Math.round(p.t / 1000) },
+                    })),
+                ],
+            };
+        }
+
+        /** Trigger a browser download of the GeoJSON file. */
+        function downloadGeoJSON(geojson, mode, startTime) {
+            const ts   = new Date(startTime).toISOString().slice(0, 19).replace(/[T:]/g, '-');
+            const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = `stag_path_mode${mode}_${ts}.geojson`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         // ==================== MAIN XR SETUP (mode dispatcher) ====================
         function setupMediathequeXR(view, createText, rotation, mode) {
             const xr = view.renderer.xr;
+            let tracker = null;
 
             xr.addEventListener('sessionstart', async function () {
                 const vrControls = view.webXR.vrControls;
                 const session    = xr.getSession ? xr.getSession() : this.getSession();
+
+                // Start recording the user's path immediately
+                tracker = startPathTracking(view, mode);
 
                 setTransparentData(view);
 
@@ -385,6 +497,16 @@
                 } else if (mode === 'C') {
                     setupModeC(view, vrControls, inSituModels);
                 }
+            });
+
+            xr.addEventListener('sessionend', function () {
+                if (!tracker) return;
+                const samples = tracker.stop();
+                if (samples.length > 1) {
+                    const geojson = buildPathGeoJSON(samples, tracker.mode, tracker.startTime);
+                    downloadGeoJSON(geojson, tracker.mode, tracker.startTime);
+                }
+                tracker = null;
             });
         }
 
