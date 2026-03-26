@@ -228,9 +228,12 @@
 
             itowns.updateGNSSStatus(TCP_status, data);
 
+            // Camera centered on the mediatheque, ~80 m back, tilted 30° down, heading toward the building
             const placement = {
-                coord: new itowns.Coordinates('EPSG:4326', geopose.position.lon, geopose.position.lat),
-                range: 10, tilt: 5, heading: 0,
+                coord:   new itowns.Coordinates('EPSG:4326', 2.794119, 50.457058),
+                range:   10,
+                tilt:    5,
+                heading: 50,
             };
             const viewerDiv = document.getElementById('viewerDiv');
             const view = new itowns.GlobeView(viewerDiv, placement, { webXR: { controllers: true, cameraOnGround: true } });
