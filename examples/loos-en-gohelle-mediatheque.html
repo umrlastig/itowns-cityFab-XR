@@ -213,20 +213,20 @@
         // ==================== INIT XR ====================
         async function initXR(mode) {
             let geopose;
-            try {
-                const gnss = await waitForGNSS();
-                data.geo      = { longitude: gnss.lon, latitude: gnss.lat, altitude: gnss.alt };
-                data.rotation = { heading: gnss.headingDeg, pitch: gnss.pitchDeg };
-                TCP_status    = 'Connected';
-                geopose = fromGNSS(gnss, gnss.rotation.yaw, gnss.rotation.pitch, gnss.rotation.roll);
-                geopose.validate();
-            } catch (e) {
-                data.geo = DEFAULT_POS;
-                console.warn('GNSS unavailable, using default position.', e);
-                geopose = new GeoPose(data.geo.latitude, data.geo.longitude, 0, 0, 0, 0);
-            }
+            // try {
+            //     const gnss = await waitForGNSS();
+            //     data.geo      = { longitude: gnss.lon, latitude: gnss.lat, altitude: gnss.alt };
+            //     data.rotation = { heading: gnss.headingDeg, pitch: gnss.pitchDeg };
+            //     TCP_status    = 'Connected';
+            //     geopose = fromGNSS(gnss, gnss.rotation.yaw, gnss.rotation.pitch, gnss.rotation.roll);
+            //     geopose.validate();
+            // } catch (e) {
+            //     data.geo = DEFAULT_POS;
+            //     console.warn('GNSS unavailable, using default position.', e);
+            //     geopose = new GeoPose(data.geo.latitude, data.geo.longitude, 0, 0, 0, 0);
+            // }
 
-            itowns.updateGNSSStatus(TCP_status, data);
+            // itowns.updateGNSSStatus(TCP_status, data);
 
             // Camera centered on the mediatheque, ~80 m back, tilted 30° down, heading toward the building
             const placement = {
@@ -240,7 +240,7 @@
 
             view.renderer.xr.enabled = true;
             viewerDiv.appendChild(XRButton.createButton(view.renderer, {
-                requiredFeatures: ['local-floor'],
+                requiredFeatures: ['unbounded'],
                 // depthSensing: {
                 //     usagePreference: ['gpu-optimized', 'cpu-optimized'],
                 //     dataFormatPreference: ['float32', 'luminance-alpha'],
@@ -260,29 +260,27 @@
             itowns.Fetcher.json('./layers/JSONLayers/WORLD_DTM.json').then(addElevation);
 
             // WFS buildings
-            const wfsSrc = new itowns.WFSSource({
-                url: 'https://data.geopf.fr/wfs/ows?', version: '2.0.0',
-                typeName: 'BDTOPO_V3:batiment', crs: 'EPSG:4326', ipr: 'IGN', format: 'application/json',
-            });
-            const altitudeFn = p => p.altitude_minimale_sol;
-            const extrudeFn  = p => p.hauteur;
-            const filterFn   = p => !!p.hauteur;
-            const colorFn    = p => {
-                const map = { 'Résidentiel': 0xFDFDFF, 'Commercial et services': 0x62929E, 'Sportif': 0x546A7B };
-                return new itowns.THREE.Color(map[p.usage_1] || 0x555555);
-            };
-            const wire = new itowns.FeatureGeometryLayer('WFS Building Wireframe', {
-                batchId: (_, id) => id, filter: filterFn, source: wfsSrc, zoom: { min: 14 },
-                style: { fill: { color: new THREE.Color(0x000000), base_altitude: altitudeFn, extrusion_height: extrudeFn } },
-            });
-            wire.wireframe = true;
-            view.addLayer(wire);
-            view.addLayer(new itowns.FeatureGeometryLayer('WFS Building', {
-                batchId: (_, id) => id, filter: filterFn, source: wfsSrc, zoom: { min: 14 },
-                style: { fill: { color: colorFn, opacity: 0.2, base_altitude: altitudeFn, extrusion_height: extrudeFn } },
-            }));
-
-            // setTransparentData(view);
+            // const wfsSrc = new itowns.WFSSource({
+            //     url: 'https://data.geopf.fr/wfs/ows?', version: '2.0.0',
+            //     typeName: 'BDTOPO_V3:batiment', crs: 'EPSG:4326', ipr: 'IGN', format: 'application/json',
+            // });
+            // const altitudeFn = p => p.altitude_minimale_sol;
+            // const extrudeFn  = p => p.hauteur;
+            // const filterFn   = p => !!p.hauteur;
+            // const colorFn    = p => {
+            //     const map = { 'Résidentiel': 0xFDFDFF, 'Commercial et services': 0x62929E, 'Sportif': 0x546A7B };
+            //     return new itowns.THREE.Color(map[p.usage_1] || 0x555555);
+            // };
+            // const wire = new itowns.FeatureGeometryLayer('WFS Building Wireframe', {
+            //     batchId: (_, id) => id, filter: filterFn, source: wfsSrc, zoom: { min: 14 },
+            //     style: { fill: { color: new THREE.Color(0x000000), base_altitude: altitudeFn, extrusion_height: extrudeFn } },
+            // });
+            // wire.wireframe = true;
+            // view.addLayer(wire);
+            // view.addLayer(new itowns.FeatureGeometryLayer('WFS Building', {
+            //     batchId: (_, id) => id, filter: filterFn, source: wfsSrc, zoom: { min: 14 },
+            //     style: { fill: { color: colorFn, opacity: 0.2, base_altitude: altitudeFn, extrusion_height: extrudeFn } },
+            // }));
 
             setupMediathequeXR(view, createText, data.rotation, mode);
         }
@@ -568,6 +566,8 @@
                 }
             };
 
+            vrControls.onLeftAxisChanged = function (ctrl) {};
+
             // Add instruction text to right controller on connect
             const instructionText = makeControllerLabel('<- -> Scénario suivant / précédent', new THREE.Vector3(0, 0.12, 0));
 
@@ -606,7 +606,7 @@
                 const obj = await new OBJLoader().setPath('obj/').setMaterials(mat).loadAsync(`${name}.obj`);
                 obj.name  = name;
                 obj.scale.set(0.04, 0.04, 0.04);
-                obj.position.set((i * 2) - 2, -2, 0);
+                obj.position.set((i * 2) - 2, 0, 0);
                 obj.rotateOnAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2);
                 obj.visible = true;
 
@@ -621,8 +621,8 @@
 
             // Place ground group relative to in-situ location, oriented to face the user
             groundGroup.position.set(
-                4063981.183718488,
-                198350.05166428772,
+                4063977,
+                198335,
                 4895342.530291722
             );
             const coord = new itowns.Coordinates('EPSG:4978',
@@ -684,6 +684,9 @@
                 }
                 view.notifyChange();
             };
+
+            vrControls.onLeftAxisChanged = function (ctrl) {};
+            vrControls.onRightAxisChanged = function (ctrl) {};
         }
 
         // ==================== MODE C — Physical markers + virtual highlight ====================
@@ -696,9 +699,9 @@
         function setupModeC(view, vrControls, inSituModels) {
             // Offsets relative to XR origin at session start
             const PHYSICAL_MODEL_OFFSETS = [
-                new THREE.Vector3(-0.35, 1, -2.0),  // Scénario actuel  (left)
-                new THREE.Vector3(  0.0, 1, -2.0),  // Scénario A       (centre)
-                new THREE.Vector3( 0.35, 1, -2.0),  // Scénario B       (right)
+                new THREE.Vector3(-0.35 - 1, 1, -2.0),  // Scénario actuel  (left)
+                new THREE.Vector3(  0.0 - 1, 1, -2.0),  // Scénario A       (centre)
+                new THREE.Vector3( 0.35 - 1, 1, -2.0),  // Scénario B       (right)
             ];
 
             const xrOrigin = vrControls.groupXR;
@@ -795,6 +798,9 @@
             // Instruction on right controller
             const rightLabel = makeControllerLabel('Pointez + Gâchette -> sélectionner', new THREE.Vector3(0, 0.12, 0));
             vrControls.controllers.filter(c => c.userData.handedness === 'right').forEach(c => c.add(rightLabel));
+
+            vrControls.onLeftAxisChanged = function (ctrl) {};
+            vrControls.onRightAxisChanged = function (ctrl) {};
         }
 
         // ==================== GNSS ROTATION (shared utility) ====================
